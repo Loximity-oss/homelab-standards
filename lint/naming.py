@@ -106,6 +106,8 @@ def main():
                 err(rel, f"ip {ip} not in an allowed band for '{zone}': {bands}")
             if any(ip in n for n in prot_nets):
                 err(rel, f"ip {ip} is in a protected subnet")
+            if str(ip) in (z.get("reserved_ips") or {}):
+                err(rel, f"ip {ip} is reserved for {z['reserved_ips'][str(ip)]}")
         except (ValueError, KeyError) as e:
             err(rel, f"ip invalid: {e}")
 

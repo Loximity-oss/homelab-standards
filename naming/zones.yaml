@@ -36,6 +36,9 @@ zones:
     vmid: [300, 399]
     pool: pool-shr
     ip_bands: {static: [10, 99], vip: [200, 239]}
+    reserved_ips:            # hand-built protected guests (not in homelab-infra specs)
+      192.168.70.12: hm1-shr-vault01 (CT 303)
+      192.168.70.20: hm1-shr-cicd01 (CT 300)
   int:
     name: Internal
     vlan: 40
