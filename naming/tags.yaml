@@ -1,0 +1,11 @@
+# Proxmox tags, key-value, lowercase. Must match the host's registered-tags (datacenter options).
+required: [zone, role, mgd, owner, os, patch]
+keys:
+  zone: [mgt, dmz, shr, int, lab]
+  role: [pve, aiops, cicd, dns, dc, idp, pki, vault, jump, guac, rp, mon, log, db, k3sc, k3sw, nas, bkp, app, ws]
+  mgd: [tf, manual, lab]
+  owner: [infra, sys, app, net, sre, faris]
+  os: [ubuntu2604, debian13, win2025]
+  patch: [ring0, ring1, ring2]
+  env: [prod, lab]
+flags: [protected]

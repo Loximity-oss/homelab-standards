@@ -1,0 +1,87 @@
+# Zone code -> network. Addressing follows the existing UniFi networks (no renumbering).
+# guests: whether the pipeline may place guests in the zone.
+# ip_bands: allowed static ranges for guests (last octet, inclusive).
+site: hm1
+domain: lox-internal.dev
+zones:
+  mgt:
+    name: Management-InternalServices
+    vlan: 2
+    cidr: 192.168.67.0/29
+    gateway: 192.168.67.1
+    bridge: vmbr0
+    router: lox-coresw-01
+    guests: false        # PVE host and OpenClaw (CT 100) only. Hard limit.
+    vmid: [100, 199]
+    pool: pool-mgt
+  dmz:
+    name: DMZ
+    vlan: 10
+    cidr: 192.168.71.0/24
+    gateway: 192.168.71.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    guests: true
+    vmid: [200, 299]
+    pool: pool-dmz
+    ip_bands: {static: [10, 99], vip: [200, 239]}
+  shr:
+    name: Shared Services
+    vlan: 20
+    cidr: 192.168.70.0/24
+    gateway: 192.168.70.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    guests: true
+    vmid: [300, 399]
+    pool: pool-shr
+    ip_bands: {static: [10, 99], vip: [200, 239]}
+  int:
+    name: Internal
+    vlan: 40
+    cidr: 192.168.72.0/24
+    gateway: 192.168.72.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    guests: true
+    vmid: [400, 499]
+    pool: pool-int
+    ip_bands: {static: [10, 99], vip: [200, 239]}
+  lab:
+    name: Lab (no own VLAN; uses Internal)
+    vlan: 40
+    cidr: 192.168.72.0/24
+    gateway: 192.168.72.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    guests: true
+    vmid: [800, 899]
+    pool: pool-lab
+    ip_bands: {static: [240, 254]}
+  net:
+    name: Management-Ubiquiti
+    vlan: 1
+    cidr: 192.168.68.0/24
+    gateway: 192.168.68.1
+    router: lox-gw-01
+    guests: false
+  wif:
+    name: WiFi
+    vlan: 30
+    cidr: 192.168.69.0/24
+    gateway: 192.168.69.1
+    router: lox-gw-01
+    guests: false
+  tru:
+    name: Trusted
+    vlan: 50
+    cidr: 192.168.73.0/29
+    gateway: 192.168.73.1
+    router: lox-gw-01
+    guests: false
+  trn:
+    name: Inter-VLAN routing
+    vlan: 4040
+    cidr: 10.255.253.0/24
+    router: lox-gw-01
+    guests: false

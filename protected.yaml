@@ -1,0 +1,8 @@
+# Hard limits. Read by: Proxmox ACLs (NoAccess), Terraform module preconditions,
+# the PR classifier, the agents' tools, and lint/naming.py. Faris-only.
+vmids:
+  100: hm1-mgt-aiops01 (OpenClaw)
+  300: hm1-shr-cicd01 (DevOps plane)
+  303: hm1-shr-vault01 (OpenBao secrets store)
+bridges: [vmbr0]
+subnets: [192.168.67.0/29]

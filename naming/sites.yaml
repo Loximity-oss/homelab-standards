@@ -1,0 +1,4 @@
+sites:
+  hm1:
+    description: Home site 1 (primary homelab, PVE hm1-mgt-pve01)
+    domain: lox-internal.dev

@@ -1,0 +1,13 @@
+# Service DNS names under lox-internal.dev (CNAME -> host, or A -> VIP).
+services:
+  git: Gitea (DevOps plane)
+  ci: CI runner status (DevOps plane)
+  dns: DNS resolvers (VIP)
+  pve: Proxmox VE UI
+  aiops: OpenClaw
+  idp: Identity provider
+  pki: Internal CA / ACME endpoint
+  mon: Prometheus
+  grafana: Grafana
+  proxy: Reverse proxy
+  vault: Secrets service

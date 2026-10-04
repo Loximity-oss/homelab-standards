@@ -1,0 +1,27 @@
+# Role codes: 2-5 chars, start with a letter, function not product.
+roles:
+  pve: Proxmox VE host
+  aiops: OpenClaw (AIOps team)
+  cicd: DevOps plane (Gitea, runner, state DB)
+  dns: DNS resolver / authoritative
+  dc: AD domain controller (later)
+  idp: Identity provider
+  pki: Internal certificate authority
+  vault: Secrets store (OpenBao)
+  jump: Jump / bastion host
+  guac: Guacamole gateway
+  rp: Reverse proxy / ingress
+  mon: Monitoring (Prometheus, Grafana)
+  log: Log aggregation
+  db: Shared database server
+  k3sc: k3s control plane
+  k3sw: k3s worker
+  nas: Storage / file service
+  bkp: Backup server (PBS)
+  app: Single-purpose app with no better code (avoid)
+  ws: Workstation
+  gw: Gateway (network device)
+  csw: Core switch (network device)
+  asw: Access switch (network device)
+  ap: Access point (network device)
+network_device_roles: [gw, csw, asw, ap]
