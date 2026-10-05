@@ -12,7 +12,7 @@ OPTIONAL = {"datastore", "description", "swap_mb", "nesting", "env"}
 TYPES = {"lxc"}  # "vm" is added once template 9000 exists
 BRANCH_RE = re.compile(r"^(feat|fix|chore|patch|app|net|learn|docs)/([0-9]+-)?[a-z0-9][a-z0-9-]*$")
 TITLE_RE = re.compile(r"^(WIP:? )?(feat|fix|chore|patch|app|net|learn|docs)(\([a-z0-9-]+\))?!?: \S")
-SECRET_RE = re.compile(r"^secrets/[a-z0-9]{3}/(platform|dmz|shr|int|lab)/[a-z0-9-]+\.sops\.yaml$")
+SECRET_REF_RE = re.compile(r"""\bsecret/(?:data/)?([a-z0-9][a-z0-9/_-]*[a-z0-9])""")
 
 
 def load(p):
@@ -125,11 +125,22 @@ def main():
                 err(rel, f"duplicate {key} '{v}' (also in {seen[key][v]})")
             seen[key][v] = rel
 
-    for f in sorted((I / "secrets").rglob("*")) if (I / "secrets").exists() else []:
-        if f.is_file():
-            rel = str(f.relative_to(I))
-            if not SECRET_RE.match(rel):
-                err(rel, "secret files must be secrets/<site>/<platform|zone>/<name>.sops.yaml")
+    sec = load(S / "naming/secrets.yaml") if (S / "naming/secrets.yaml").exists() else None
+    if (I / "secrets").exists() or list(I.rglob("*.sops.yaml")):
+        err("secrets", "no secrets in Git: secrets live in OpenBao (naming/secrets.yaml)")
+    if sec:
+        path_re = re.compile(sec["path_pattern"])
+        for f in I.rglob("*"):
+            if not f.is_file() or ".git" in f.parts or f.suffix not in {".yml", ".yaml", ".j2", ".tf", ".hcl", ".tpl", ".sh", ".py", ".md"}:
+                continue
+            try:
+                txt = f.read_text()
+            except (UnicodeDecodeError, OSError):
+                continue
+            for m in SECRET_REF_RE.finditer(txt):
+                ref = m.group(1)
+                if ref.startswith(("hm1/", "inbox/")) and not path_re.match(ref):
+                    err(f.relative_to(I), f"OpenBao path 'secret/{ref}' does not match naming/secrets.yaml path_pattern")
 
     if a.branch and not BRANCH_RE.match(a.branch):
         err("branch", f"'{a.branch}' must be <type>/<issue#>-<slug>, type in feat|fix|chore|patch|app|net|learn|docs")

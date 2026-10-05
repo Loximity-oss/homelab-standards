@@ -73,7 +73,7 @@ Engineers don't edit conventions. Each is the **steward** of its area: it knows 
 | 8.2 | Ansible (OS roles, groups) | Systems Engineer |
 | 8.3 | Ansible app roles, app config | Application Engineer |
 | 8.4 | Git (branches, commits, labels, tags) | Infrastructure Engineer |
-| 8.5 | Secrets (SOPS files and keys) | Infrastructure Engineer |
+| 8.5 | Secrets (OpenBao paths, keys, AppRoles) | Infrastructure Engineer (policies: Faris) |
 | 9.1 | Alerts, runbooks, dashboards | SRE |
 | 9.2 | Snapshots, backups | SRE |
 | 9.3 | Patch artefacts | Systems Engineer |
@@ -335,9 +335,11 @@ Shared admin accounts (`root` login, `devops-admin`) are break-glass only and li
 - Release tags: `vYYYY.MM.DD[.n]`.
 
 ### 8.5 Secrets (Infrastructure Engineer)
-- Files: `secrets/<site>/<zone|platform>/<system>.sops.yaml` (e.g. `secrets/hm1/platform/gitea.sops.yaml`).
-- Keys: `UPPER_SNAKE`, `<SYSTEM>_<PURPOSE>_<KIND>` (`GITEA_CIMERGER_TOKEN`, `PVE_TFAPPLY_TOKEN_SECRET`, `PG_TERRAFORM_PASSWORD`). `KIND` ∈ `TOKEN`, `PASSWORD`, `KEY`, `CERT`, `URL`.
-- age recipients: `age-<holder>` (`age-faris`, `age-ci`, `age-aiops`).
+Secrets live only in **OpenBao** (CT 303). Machine-readable rules: `naming/secrets.yaml`; policies and AppRoles as code: `openbao/` (applied by Faris).
+- Paths (KV v2 mount `secret/`): `hm1/<scope>/<system>[/<sub>]`, scope ∈ `platform`, `dmz`, `shr`, `int`, `lab`. Examples: `hm1/platform/ci/plan`, `hm1/shr/keycloak`. Agents' new secrets: `inbox/<name>` (write-only).
+- Keys: lowercase `snake_case` (`gitea_token_oc_infra`, `pve_token_plan`, `pg_conn`).
+- AppRoles: `<system>-<purpose>` (`ci-plan`, `ci-apply`, `aiops`); AppRole name = policy name; each bound to its client IP.
+- Never in Git: no `secrets/` directory, no `*.sops.yaml`, no plain tokens (the PR lint and gitleaks enforce it).
 
 ---
 
@@ -382,7 +384,7 @@ Learning tip: editing the YAML yourself is a quick way to see the gate react. Ad
 | Tags | all required keys present, values from vocab (§6.5); `zone-` tag = hostname zone |
 | DNS | service names ∈ `services.yaml`; no `lox-internal.dev` names in `loximity.dev` zone |
 | Identities | match §7 patterns, ≤ 20 chars |
-| Secrets | file path and key regex (§8.5) |
+| Secrets | no secrets in Git; OpenBao path references match `naming/secrets.yaml` (§8.5) |
 | Snapshots | name regex (§9.2) for snapshots created by tools |
 | Git | branch regex and Conventional Commit title |
 
