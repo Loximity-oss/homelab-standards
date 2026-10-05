@@ -4,5 +4,7 @@ vmids:
   100: hm1-mgt-aiops01 (OpenClaw)
   300: hm1-shr-cicd01 (DevOps plane)
   303: hm1-shr-vault01 (OpenBao secrets store)
+# Protected guests are never in a Proxmox pool: pool rights are added on top of guest rights and would bypass
+# the audit-only ACL for OpenClaw (incident 2026-10-05). Checked nightly by openclaw-nightly-scan.
 bridges: [vmbr0]
 subnets: [192.168.67.0/29]
