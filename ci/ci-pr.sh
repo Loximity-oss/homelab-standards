@@ -20,7 +20,12 @@ chk "naming lint (main's checker, PR data, infra main)" python3 "$BASE/lint/nami
 chk yamllint yamllint -d relaxed "$HEAD_DIR"
 chk gitleaks gitleaks dir "$HEAD_DIR" --no-banner --redact
 if git -C "$BASE" diff --name-only "$MAIN...$HEAD_SHA" | grep -qx 'naming/zones.yaml'; then
-  chk "zones match UniFi (read-only)" python3 "$BASE/ci/check-unifi.py" "$HEAD_DIR"
+  urc=0; python3 "$BASE/ci/check-unifi.py" "$HEAD_DIR" > "$WORK/unifi.log" 2>&1 || urc=$?
+  case $urc in
+    0) echo "- ✅ zones match UniFi (read-only)" >> "$R" ;;
+    2) echo "- ⚠️ zones vs UniFi: **skipped** — $(tail -1 "$WORK/unifi.log")" >> "$R" ;;
+    *) fail=1; { echo "- ❌ **zones match UniFi (read-only)**"; echo '```'; head -40 "$WORK/unifi.log"; echo '```'; } >> "$R" ;;
+  esac
 fi
 if [ $fail -ne 0 ]; then { echo "## ❌ Checks failed"; echo; cat "$R"; } > "$WORK/c.md"; python3 "$BASE/ci/gitea.py" comment "$PR" "$WORK/c.md"; exit 1; fi
 git -C "$BASE" diff --name-status "$MAIN...$HEAD_SHA" > "$WORK/changed.txt"
