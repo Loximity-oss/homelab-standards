@@ -8,4 +8,5 @@ keys:
   os: [ubuntu2604, debian13, win2025]
   patch: [ring0, ring1, ring2]
   env: [prod, lab]
+  feat: [keyctl]       # container features set by host/pve-feature-broker (option B, 2026-10-08)
 flags: [protected]

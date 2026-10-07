@@ -8,7 +8,7 @@ import argparse, ipaddress, pathlib, re, sys
 import yaml
 
 REQUIRED = {"hostname", "vmid", "type", "role", "os", "ip", "cores", "memory_mb", "disk_gb", "owner", "patch"}
-OPTIONAL = {"datastore", "description", "swap_mb", "nesting", "env"}
+OPTIONAL = {"datastore", "description", "swap_mb", "nesting", "env", "keyctl"}
 TYPES = {"lxc"}  # "vm" is added once template 9000 exists
 BRANCH_RE = re.compile(r"^(feat|fix|chore|patch|app|net|learn|docs)/([0-9]+-)?[a-z0-9][a-z0-9-]*$")
 TITLE_RE = re.compile(r"^(WIP:? )?(feat|fix|chore|patch|app|net|learn|docs)(\([a-z0-9-]+\))?!?: \S")
@@ -128,6 +128,8 @@ def main():
         for key in ("os", "owner", "patch", "env"):
             if key in s and s[key] not in tags.get(key, []):
                 err(rel, f"{key} '{s[key]}' not in naming/tags.yaml {tags.get(key)}")
+        if "keyctl" in s and not isinstance(s["keyctl"], bool):
+            err(rel, "keyctl must be true or false")
         for key in ("cores", "memory_mb", "disk_gb"):
             if key in s and (not isinstance(s[key], int) or s[key] <= 0):
                 err(rel, f"{key} must be a positive integer")
