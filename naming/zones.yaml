@@ -1,4 +1,4 @@
-# Zone code -> network. Source: UniFi Networks page (design-v7 decision 22, 2026-10-07). Owner: Network Engineer (owners.yaml).
+# Zone code -> network (v7 gate test: Class C, Faris). Source: UniFi Networks page (design-v7 decision 22, 2026-10-07). Owner: Network Engineer (owners.yaml).
 # CI (ci/check-unifi.py) fails a PR when vlan/cidr/gateway differ from UniFi.
 # guests: whether the pipeline may place guests in the zone. A guest zone must be routed by lox-coresw-01 and trunked on vmbr1.
 # ip_bands: allowed static ranges for guests (last octet, inclusive).
