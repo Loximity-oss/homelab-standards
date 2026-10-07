@@ -1,0 +1,16 @@
+# Internal PKI on OpenBao (design-v7 decisions 5 and 9). Built once by rebuild/v7/vault/03-zones-pki.sh.
+root:
+  mount: pki-root
+  common_name: lox-internal Root CA
+  ttl: 87600h            # 10 years; used only to sign the intermediate
+intermediate:
+  mount: pki
+  common_name: lox-internal Intermediate CA
+  ttl: 43800h            # 5 years
+  acme: true             # ACME directory per role: https://192.168.70.12:8200/v1/pki/roles/<role>/acme/directory
+roles:                   # hostnames are <host>.lox-internal.dev; zone roles only issue for that zone's hosts
+  shr: {allowed_domains: ["hm1-shr-*.lox-internal.dev"], max_ttl: 2160h}
+  int: {allowed_domains: ["hm1-int-*.lox-internal.dev"], max_ttl: 2160h}
+  dmz: {allowed_domains: ["hm1-dmz-*.lox-internal.dev"], max_ttl: 2160h}
+  lab: {allowed_domains: ["hm1-lab-*.lox-internal.dev"], max_ttl: 720h}
+  services: {allowed_domains: ["lox-internal.dev"], allow_subdomains: true, max_ttl: 2160h}   # service names (vault., git., ...)

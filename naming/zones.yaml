@@ -1,0 +1,107 @@
+# Zone code -> network. Source: UniFi Networks page (design-v7 decision 22, 2026-10-07). Owner: Network Engineer (owners.yaml).
+# CI (ci/check-unifi.py) fails a PR when vlan/cidr/gateway differ from UniFi.
+# guests: whether the pipeline may place guests in the zone. A guest zone must be routed by lox-coresw-01 and trunked on vmbr1.
+# ip_bands: allowed static ranges for guests (last octet, inclusive).
+site: hm1
+domain: lox-internal.dev
+zones:
+  mgt:
+    name: Management-InternalServices
+    vlan: 2
+    cidr: 192.168.67.0/29
+    gateway: 192.168.67.1
+    bridge: vmbr0
+    router: lox-coresw-01
+    dhcp: none
+    guests: false        # PVE host and OpenClaw (CT 100) only. Hard limit.
+    vmid: [100, 199]
+    pool: pool-mgt
+  dmz:
+    name: DMZ
+    vlan: 10
+    cidr: 192.168.71.0/24
+    gateway: 192.168.71.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    guests: true
+    vmid: [200, 299]
+    pool: pool-dmz
+    ip_bands: {static: [10, 99], vip: [200, 239]}
+  shr:
+    name: Shared Services
+    vlan: 20
+    cidr: 192.168.70.0/24
+    gateway: 192.168.70.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    guests: true
+    vmid: [300, 399]
+    pool: pool-shr
+    ip_bands: {static: [10, 99], vip: [200, 239]}
+    reserved_ips:            # hand-built protected guests (not in homelab-infra specs)
+      192.168.70.12: hm1-shr-vault01 (CT 303)
+      192.168.70.20: hm1-shr-cicd01 (CT 300)
+  int:
+    name: Internal
+    vlan: 40
+    cidr: 192.168.72.0/24
+    gateway: 192.168.72.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    guests: true
+    vmid: [400, 499]
+    pool: pool-int
+    ip_bands: {static: [10, 99], vip: [200, 239]}
+  lab:
+    name: Lab (no own VLAN; shares Internal — decision 2)
+    vlan: 40
+    cidr: 192.168.72.0/24
+    gateway: 192.168.72.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    guests: true
+    vmid: [800, 899]
+    pool: pool-lab
+    ip_bands: {static: [240, 254]}
+  tru:
+    name: Trusted
+    vlan: 50
+    cidr: 192.168.73.0/28
+    gateway: 192.168.73.1
+    router: lox-gw-01
+    guests: false
+  iot:
+    name: IoT
+    vlan: 100
+    cidr: 192.168.74.0/24
+    gateway: 192.168.74.1
+    router: lox-gw-01
+    guests: false        # client network; decision 1 (deferred)
+  wifi:
+    name: WiFi
+    vlan: 110
+    cidr: 192.168.69.0/24
+    gateway: 192.168.69.1
+    router: lox-gw-01
+    guests: false        # client network; decision 1 (deferred)
+  gst:
+    name: Guest
+    vlan: 120
+    cidr: 192.168.75.0/24
+    gateway: 192.168.75.1
+    router: lox-gw-01
+    guests: false        # client network; decision 1 (deferred)
+  net:
+    name: Management-Ubiquiti
+    vlan: 1
+    cidr: 192.168.68.0/24
+    gateway: 192.168.68.1
+    router: lox-gw-01
+    guests: false
+  trn:
+    name: Inter-VLAN routing
+    vlan: 4040
+    cidr: 10.255.253.0/24
+    router: lox-gw-01
+    dhcp: none
+    guests: false

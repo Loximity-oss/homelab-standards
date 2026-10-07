@@ -1,0 +1,23 @@
+name: pr
+# pull_request_target: workflow and ci/ scripts come from main; the PR's files are only read as data
+# (main's lint/naming.py checks the PR's vocabularies against homelab-infra main). PR code never runs.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+jobs:
+  plan:
+    runs-on: host-plan
+    steps:
+      - name: check, classify, gate
+        env:
+          GIT_TOKEN: ${{ gitea.token }}
+          SERVER: ${{ gitea.server_url }}
+          REPO: ${{ gitea.repository }}
+          PR: ${{ gitea.event.pull_request.number }}
+          HEAD_SHA: ${{ gitea.event.pull_request.head.sha }}
+          TITLE: ${{ gitea.event.pull_request.title }}
+          AUTHOR: ${{ gitea.event.pull_request.user.login }}
+        run: |
+          rm -rf base head
+          git clone -q "${SERVER%%://*}://ci:${GIT_TOKEN}@${SERVER#*://}/${REPO}.git" base
+          bash base/ci/ci-pr.sh

@@ -1,0 +1,7 @@
+# Zone namespaces (design-v7 decision 9): one OpenBao (CT 303), one namespace per guest zone, each with KV v2 at `secret/`.
+# Platform secrets stay in the root namespace (secret/hm1/platform/*). Applied by apply.sh (Faris).
+# Layout inside each namespace:
+#   secret/guests/<hostname>   provisioning secrets (admin password, SSH host keys) — pipeline writes once (create-only); Faris reads
+#   secret/apps/<app>          app secrets — Configuration Engineer stores (create-only); Ansible renders at deploy; agents see names only
+mode: namespace          # namespace | mount (fallback if namespaces are unavailable: KV mounts secret-<zone>/ in the root namespace)
+namespaces: [shr, int, dmz, lab]

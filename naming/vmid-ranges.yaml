@@ -1,0 +1,7 @@
+# Non-zone VMID ranges. Zone blocks are in zones.yaml (vmid).
+reserved_future_zones: [500, 799]
+templates_linux: [9000, 9099]
+templates_windows: [9100, 9199]
+temporary: [9900, 9999]
+lab_drills: [850, 899]   # inside the lab block
+core_slots: "x00-x09 of each zone block: foundational / protected guests"
