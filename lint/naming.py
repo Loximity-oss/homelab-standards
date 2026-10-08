@@ -60,6 +60,18 @@ def main():
     def err(path, msg):
         errs.append(f"{path}: {msg}")
 
+    # v7.1: every guest zone needs an OpenBao namespace (one-time guest secrets) and a PKI role (ACME)
+    ob = S / "openbao"
+    if (ob / "namespaces.yaml").exists():
+        nss = set(load(ob / "namespaces.yaml").get("namespaces", []))
+        pki_roles = set((load(ob / "pki.yaml").get("roles") or {})) if (ob / "pki.yaml").exists() else set()
+        for zc, zv in zones.items():
+            if zv.get("guests"):
+                if zc not in nss:
+                    err("openbao/namespaces.yaml", f"guest zone {zc} has no OpenBao namespace")
+                if zc not in pki_roles:
+                    err("openbao/pki.yaml", f"guest zone {zc} has no PKI role")
+
     seen = {"hostname": {}, "vmid": {}, "ip": {}}
 
     stacks = I / "terraform/stacks" / site

@@ -13,4 +13,5 @@ roles:                   # hostnames are <host>.lox-internal.dev; zone roles onl
   int: {allowed_domains: ["hm1-int-*.lox-internal.dev"], max_ttl: 2160h}
   dmz: {allowed_domains: ["hm1-dmz-*.lox-internal.dev"], max_ttl: 2160h}
   lab: {allowed_domains: ["hm1-lab-*.lox-internal.dev"], max_ttl: 720h}
+  stg: {allowed_domains: ["hm1-stg-*.lox-internal.dev"], max_ttl: 720h}
   services: {allowed_domains: ["lox-internal.dev"], allow_subdomains: true, max_ttl: 2160h}   # service names (vault., git., ...)
