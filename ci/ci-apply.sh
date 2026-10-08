@@ -9,4 +9,6 @@ python3 "$BASE/ci/apply-proxmox.py" "$BASE" > "$OUT/apply.log" 2>&1; rc=$?; set 
 read -r PR _ <<<"$(python3 "$BASE/ci/gitea.py" pr-of-commit "$SHA")" || true
 { [ $rc -eq 0 ] && echo "## Apply (\`${SHA:0:8}\`) ✅" || echo "## Apply (\`${SHA:0:8}\`) ❌"; echo; echo '```'; cat "$OUT/apply.log"; echo '```'; } > "$OUT/c.md"
 [ -n "${PR:-}" ] && python3 "$BASE/ci/gitea.py" comment "$PR" "$OUT/c.md"
+# Issue #32: open standards PRs are checked against the old main; update them from main so they re-check.
+python3 "$BASE/ci/gitea.py" refresh-open "${PR:-}" || true
 cat "$OUT/apply.log"; exit $rc
