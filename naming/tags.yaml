@@ -1,7 +1,7 @@
 # Proxmox tags, key-value, lowercase. Must match the host's registered-tags (datacenter options).
 required: [zone, role, mgd, owner, os, patch]
 keys:
-  zone: [mgt, dmz, shr, int, stg]
+  zone: [mgt, dmz, shr, int, stg, wifi]
   role: [pve, aiops, cicd, dns, dc, idp, pki, vault, jump, guac, rp, mon, log, db, k3sc, k3sw, nas, bkp, app, ws, web]
   mgd: [tf, manual]
   owner: [infra, cfg, net, sre, faris]
