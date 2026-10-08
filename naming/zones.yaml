@@ -1,6 +1,7 @@
 # Zone code -> network (v7 gate test: Class C, Faris). Source: UniFi Networks page (design-v7 decision 22, 2026-10-07). Owner: Network Engineer (owners.yaml).
 # CI (ci/check-unifi.py) fails a PR when vlan/cidr/gateway differ from UniFi.
-# guests: whether the pipeline may place guests in the zone. A guest zone must be routed by lox-coresw-01 and trunked on vmbr1.
+# guests: whether the pipeline may place guests in the zone. A guest zone must be trunked on vmbr1 and routed by lox-coresw-01,
+# except wifi (Faris decision 2026-10-09, decision 1 decided for wifi only): trunked on vmbr1, routed by lox-gw-01.
 # ip_bands: allowed static ranges for guests (last octet, inclusive).
 site: hm1
 domain: lox-internal.dev
@@ -83,8 +84,13 @@ zones:
     vlan: 110
     cidr: 192.168.69.0/24
     gateway: 192.168.69.1
-    router: lox-gw-01
-    guests: false        # client network; decision 1 (deferred)
+    bridge: vmbr1
+    router: lox-gw-01    # gateway-routed: the one guest-zone exception (Faris, 2026-10-09)
+    dhcp: [100, 254]     # UniFi WiFi DHCP pool
+    guests: true         # client network that also hosts guests (decision 1 decided for wifi only)
+    vmid: [500, 599]
+    pool: pool-wifi
+    ip_bands: {static: [10, 99]}   # no vip band: .200-.239 lies inside the DHCP pool
   gst:
     name: Guest
     vlan: 120

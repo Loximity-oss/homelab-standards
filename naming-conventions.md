@@ -95,7 +95,7 @@ The Reviewer checks that PRs follow the conventions beyond what the linter can c
 | Part | Length | Rule |
 |---|---|---|
 | `site` | 3 | §0 (`hm1`) |
-| `zone` | 3 | §3.1 zone code: where the primary NIC lives |
+| `zone` | 3–4 | §3.1 zone code: where the primary NIC lives. In a 4-letter zone (`wifi`) role codes must be ≤ 4 chars to stay ≤ 15 |
 | `role` | 2–5 | Role code from `naming/roles.yaml` (§2.3) |
 | `nn` | 2 | `01`–`99`, never reused within site+zone+role while the old one exists |
 
@@ -161,12 +161,12 @@ Source of truth: `homelab-standards/naming/zones.yaml`, owned by the **Network E
 | `stg` | Staging | 60 | 192.168.76.0/24 | `lox-coresw-01` | Server | Guests — staging, test and CD preview deploys, VMIDs 8xx (decision 29; replaced `lab`, 2026-10-08) |
 | `tru` | Trusted | 50 | 192.168.73.0/28 | `lox-gw-01` | Server | Trusted admin endpoints. No guests |
 | `iot` | IoT | 100 | 192.168.74.0/24 | `lox-gw-01` | Server | Clients. No guests (decision 1 open) |
-| `wifi` | WiFi | 110 | 192.168.69.0/24 | `lox-gw-01` | Server | Clients. No guests (decision 1 open) |
+| `wifi` | WiFi | 110 | 192.168.69.0/24 | `lox-gw-01` | Server (`.100`–`.254`) | Clients **and guests** (Faris, 2026-10-09; decision 1 decided for `wifi` only). VMIDs 5xx, statics `.10`–`.99`. First use: AdGuard DNS |
 | `gst` | Guest | 120 | 192.168.75.0/24 | `lox-gw-01` | Server | Clients. No guests (decision 1 open) |
 | `net` | Management-Ubiquiti | 1 | 192.168.68.0/24 | `lox-gw-01` | Server | Network devices only |
 | `trn` | Inter-VLAN routing | 4040 | 10.255.253.0/24 | `lox-gw-01` | none | Transit between gateway and core switch. No hosts |
 
-A zone hosts guests only if it is routed by the core switch and trunked on `vmbr1` (today: `dmz`, `shr`, `int`, `stg`). Gateway-routed client networks never reach a guest.
+A zone hosts guests only if it is trunked on `vmbr1` and routed by the core switch (today: `dmz`, `shr`, `int`, `stg`). **One exception, `wifi`** (Faris, 2026-10-09): VLAN 110 is tagged on `vmbr1` but routed by `lox-gw-01`, so traffic between `wifi` guests and other zones crosses the gateway's zone firewall, and the guests share their L2 segment with wireless clients. The other gateway-routed networks (`tru`, `iot`, `gst`, `net`, `trn`) never host guests.
 
 ### 3.2 Address allocation inside each /24 (`shr`, `int`, `dmz`, `stg`)
 
@@ -184,7 +184,9 @@ The /29 networks don't use these bands:
 - `mgt` 192.168.67.0/29: `.1` gateway, `.2` PVE host, `.3` OpenClaw, `.4`–`.6` spare. Nothing else ever.
 - `tru` 192.168.73.0/29: `.1` gateway, `.2`–`.6` DHCP for trusted endpoints. No servers.
 
-`net` and `wif` are UniFi-managed (DHCP) and out of scope for guest addressing.
+`wifi` 192.168.69.0/24: `.1` gateway (`lox-gw-01`), `.2`–`.9` network-infra reserved, `.10`–`.99` static guests (Terraform), `.100`–`.254` DHCP for wireless clients (UniFi). No VIP band: `.200`–`.239` lies inside the DHCP pool.
+
+`net` is UniFi-managed (DHCP) and out of scope for guest addressing.
 
 Static addresses are configured in code (Terraform `ip_config`). DHCP reservations are only for appliances that can't take a static IP. Each zone's first service gets `.10`, so `hm1-shr-dns01 = 192.168.70.10`, `dns02 = .11`.
 
@@ -236,13 +238,14 @@ Mapping of current names: `devops.loximity.dev` (mentioned in the network doc) b
 | 200–299 | `dmz` (VLAN 10) | Reverse proxy / jump / gateway services | Internet-facing apps (`hm1-dmz-guac01`, `hm1-dmz-jump01`) |
 | 300–399 | `shr` (VLAN 20) | `300` DevOps plane `hm1-shr-cicd01` · `301`/`302` DNS `hm1-shr-dns01/02` · `303` OpenBao `hm1-shr-vault01` (protected, 192.168.70.12) · future DCs, IdP, PBS | Shared services (monitoring, logging, databases) |
 | 400–499 | `int` (VLAN 40) | Cluster control planes | Cluster workers, internal apps |
-| 500–799 | Reserved | For future zones (e.g. a new site zone), assigned in the next free block | |
+| 500–599 | `wifi` (VLAN 110, Faris 2026-10-09) | `501`/`502` DNS (AdGuard) `hm1-wifi-dns01/02` | Other guests serving wireless clients |
+| 600–799 | Reserved | For future zones (e.g. a new site zone), assigned in the next free block | |
 | 800–899 | `stg` (VLAN 60) | — | Staging guests: test deploys, CD preview deploys (T6), learning exercises, drills and DR restore tests (e.g. `811` `hm1-stg-web01`) |
 
 Rules inside a block:
 - **`x00–x09` core** holds foundational or protected guests of that zone, which other guests depend on. Anything in `protected.yaml` sits here.
 - **`x10–x99`** holds everything else, assigned in order.
-- `net`, `wif`, `tru` and `trn` never host guests, so they get no block.
+- `net`, `tru`, `iot`, `gst` and `trn` never host guests, so they get no block.
 
 Not zones, so outside the scheme:
 
@@ -265,7 +268,7 @@ Node = hostname (`hm1-mgt-pve01`). Future cluster name: `hm1-pvc01` (cluster nam
 `<type>-<media><nn>`: `lvmt-nvme01`, `lvmt-sata01` (live since 2026-10-03), future `zfs-ssd01`, `dir-backup01`, `nfs-nas01`, `pbs-bkp01`. Type ∈ `lvm|lvmt|zfs|dir|nfs|cifs|pbs|ceph`. `local` and `local-lvm` stay as Proxmox ships them unless the disk layout changes.
 
 ### 6.3 Pools
-One pool per zone: `pool-mgt`, `pool-dmz`, `pool-shr`, `pool-int`, `pool-stg` (created 2026-10-08; replaced `pool-lab`). Pools drive permissions, so keep them few and stable.
+One pool per zone: `pool-mgt`, `pool-dmz`, `pool-shr`, `pool-int`, `pool-stg` (created 2026-10-08; replaced `pool-lab`), `pool-wifi` (created by `ci/apply-proxmox.py` when the `wifi` zone merges). Pools drive permissions, so keep them few and stable.
 
 ### 6.4 Templates
 `tpl-<os><version>-<variant>`, no site or zone. Examples: `tpl-ubuntu2604-base` (9000), `tpl-debian13-base`, `tpl-win2025-core` (9100), `tpl-win2025-gui` (9101). LXC templates keep upstream file names in `local:vztmpl`.
@@ -380,9 +383,9 @@ Learning tip: editing the YAML yourself is a quick way to see the gate react. Ad
 
 | Check | Rule |
 |---|---|
-| Hostname | `^hm1-(mgt\|net\|dmz\|shr\|int\|stg)-[a-z][a-z0-9]{1,4}[0-9]{2}$`, length ≤ 15, role ∈ `roles.yaml`, zone matches the VLAN of the primary NIC; `net`/`wif`/`tru`/`trn` are rejected for guests |
+| Hostname | `^hm1-(mgt\|net\|dmz\|shr\|int\|stg\|wifi)-[a-z][a-z0-9]{1,4}[0-9]{2}$`, length ≤ 15, role ∈ `roles.yaml`, zone matches the VLAN of the primary NIC; only zones with `guests: true` (`dmz`, `shr`, `int`, `stg`, `wifi`) take guests |
 | VMID | within the zone's range (§5); not in `protected.yaml` unless the PR is Class C |
-| IP | inside the zone subnet and the right allocation band (§3.2); no `.100–.199` statics |
+| IP | inside the zone subnet and the right allocation band (§3.2); no `.100–.199` statics (`wifi`: no `.100–.254`) |
 | Tags | all required keys present, values from vocab (§6.5); `zone-` tag = hostname zone |
 | DNS | service names ∈ `services.yaml`; no `lox-internal.dev` names in `loximity.dev` zone |
 | Identities | match §7 patterns, ≤ 20 chars |
