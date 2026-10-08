@@ -52,19 +52,8 @@ zones:
     vmid: [400, 499]
     pool: pool-int
     ip_bands: {static: [10, 99], vip: [200, 239]}
-  lab:
-    name: Lab (no own VLAN; shares Internal — decision 2)
-    vlan: 40
-    cidr: 192.168.72.0/24
-    gateway: 192.168.72.1
-    bridge: vmbr1
-    router: lox-coresw-01
-    guests: true
-    vmid: [800, 899]
-    pool: pool-lab
-    ip_bands: {static: [240, 254]}
   stg:
-    name: Staging (replaces lab; v7.1 decision 29)
+    name: Staging (v7.1 decision 29)
     vlan: 60
     cidr: 192.168.76.0/24
     gateway: 192.168.76.1

@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Design, written 2026-10-03, for the Proxmox rebuild ("nuke and redo"). Nothing is renamed yet |
 | **Applies to** | Everything rebuilt on PRX-SRV001: guests, network, DNS, Proxmox objects, identities, IaC, Git, secrets, ops artefacts. This includes guests not managed by DevOps |
-| **Decided** | Keep current UniFi addressing (§3.1) · site code in names · internal domain `lox-internal.dev`, public `loximity.dev` · hostnames ≤ 15 chars (NetBIOS, AD later) · conventions live in the `homelab-standards` repo, writable by Faris only (§1); engineers are stewards |
+| **Decided** | Keep current UniFi addressing (§3.1) · site code in names · internal domain `lox-internal.dev`, public `loximity.dev` · hostnames ≤ 15 chars (NetBIOS, AD later) · conventions live in the `homelab-standards` repo, changed by PR through the pipeline (additions = Class B, rules = Class C) |
 | **Open** | §0 site code value |
 | **Related** | `architecture-network.md`, `architecture-proxmox.md`, `architecture-devops.md`, `architecture-aiops.md` |
 
@@ -26,7 +26,7 @@
 
 ### 1.1 The `homelab-standards` repo
 
-The conventions live in their own Gitea repo, `homelab/homelab-standards`, separate from `homelab-infra`. Only Faris can change it. Agents and pipelines read it.
+The conventions live in their own Gitea repo, `homelab/homelab-standards`. Since v6 (2026-10-07) it is **pipeline-managed**: the Infrastructure Engineer (or Faris) opens PRs. Additions to roles/services/tags are Class B (the Reviewer merges), and everything else is Class C (Faris). PR checks run main's checker on the PR's data. After a merge, registered tags and pools are pushed to Proxmox.
 
 ```
 homelab-standards/
@@ -102,7 +102,7 @@ The Reviewer checks that PRs follow the conventions beyond what the linter can c
 Maximum = 3 + 1 + 3 + 1 + 5 + 2 = **15**, the NetBIOS limit, by construction. Clusters with distinct node types put the type in the role code (`k3sc`, `k3sw`) rather than adding a segment.
 
 Rules:
-- Lowercase only. No `_`, no dots, no OS or size words (`ubuntu`, `big`), no person names, no `test` (use the `lab` zone instead).
+- Lowercase only. No `_`, no dots, no OS or size words (`ubuntu`, `big`), no person names, no `test` (use the `stg` zone instead).
 - The Proxmox guest name, OS hostname, DNS A record, Terraform key and Ansible inventory name are **the same string**.
 - Multi-homed guests are named after the zone of their primary (default-route) NIC.
 - Templates are not hosts: they use §6.4.
@@ -119,7 +119,7 @@ Rules:
 | JMPDMZ-SRV001 (VM 301) | `hm1-dmz-jump01` | 14 |
 | k3s control plane / worker | `hm1-int-k3sc01`, `hm1-int-k3sw01` | 14 |
 | Keycloak (example app) | `hm1-shr-idp01` | 13 |
-| Lab VM for a learning exercise | `hm1-lab-k3sw01` | 14 |
+| Staging guest (test deploy, learning exercise) | `hm1-stg-web01` | 13 |
 | Future AD domain controller | `hm1-shr-dc01` | 12 |
 | UDM Pro Max | `hm1-net-gw01` | 12 |
 | USW Pro Max 24 / USW Lite 8 PoE | `hm1-net-csw01` / `hm1-net-asw01` | 13 |
@@ -148,25 +148,27 @@ Role codes are ≤ 5 chars, start with a letter, and describe **function, not pr
 
 ## 3. Sites, zones, VLANs and IP plan
 
-### 3.1 Zones (current UniFi addressing, kept as is)
+### 3.1 Zones (UniFi addressing, 2026-10-07 — design-v7 decision 22)
 
-Addressing follows the existing UniFi networks exactly. Nothing is renumbered in the rebuild.
+Source of truth: `homelab-standards/naming/zones.yaml`, owned by the **Network Engineer** (`owners.yaml`) and checked against UniFi in CI. Zone codes are 3–4 letters.
 
-| Zone code | UniFi network | VLAN | Subnet | Router (L3) | DHCP | Notes |
+| Zone code | UniFi network | VLAN | Subnet | Router (L3) | DHCP | Guests / notes |
 |---|---|---|---|---|---|---|
+| `mgt` | Management-InternalServices | 2 | 192.168.67.0/29 | `lox-coresw-01` | none | PVE host and OpenClaw only (`vmbr0`). **Hard limit: no guest attaches here** |
+| `dmz` | DMZ | 10 | 192.168.71.0/24 | `lox-coresw-01` | Server | Guests — internet-facing / untrusted |
+| `shr` | Shared Services | 20 | 192.168.70.0/24 | `lox-coresw-01` | Server | Guests — DNS, DevOps plane, vault, IdP, monitoring |
+| `int` | Internal | 40 | 192.168.72.0/24 | `lox-coresw-01` | Server | Guests — clusters and internal workloads |
+| `stg` | Staging | 60 | 192.168.76.0/24 | `lox-coresw-01` | Server | Guests — staging, test and CD preview deploys, VMIDs 8xx (decision 29; replaced `lab`, 2026-10-08) |
+| `tru` | Trusted | 50 | 192.168.73.0/28 | `lox-gw-01` | Server | Trusted admin endpoints. No guests |
+| `iot` | IoT | 100 | 192.168.74.0/24 | `lox-gw-01` | Server | Clients. No guests (decision 1 open) |
+| `wifi` | WiFi | 110 | 192.168.69.0/24 | `lox-gw-01` | Server | Clients. No guests (decision 1 open) |
+| `gst` | Guest | 120 | 192.168.75.0/24 | `lox-gw-01` | Server | Clients. No guests (decision 1 open) |
 | `net` | Management-Ubiquiti | 1 | 192.168.68.0/24 | `lox-gw-01` | Server | Network devices only |
-| `wif` | WiFi | 30 | 192.168.69.0/24 | `lox-gw-01` | Server | Clients, no servers |
 | `trn` | Inter-VLAN routing | 4040 | 10.255.253.0/24 | `lox-gw-01` | none | Transit between gateway and core switch. No hosts |
-| `tru` | Trusted | 50 | 192.168.73.0/29 | `lox-gw-01` | Server (5 addresses) | Trusted admin endpoints. No servers |
-| `shr` | Shared Services | 20 | 192.168.70.0/24 | `lox-coresw-01` | Server | DNS, DevOps plane, IdP, monitoring |
-| `int` | Internal | 40 | 192.168.72.0/24 | `lox-coresw-01` | Server | Clusters and internal workloads |
-| `dmz` | DMZ | 10 | 192.168.71.0/24 | `lox-coresw-01` | Server | Internet-facing / untrusted |
-| `mgt` | Management-InternalServices | 2 | 192.168.67.0/29 | `lox-coresw-01` | Server | PVE host and OpenClaw only (`vmbr0`). **Hard limit: no guest attaches here** |
-| `lab` | — | — | — | — | — | No VLAN of its own. Lab guests (VMIDs 8xx) sit in `int` (static IPs `.240–.254`) but keep the `lab` zone code in their names. A dedicated lab network would be a Class C addition by the Network Engineer |
 
-UniFi network names stay as they are. The zone code is the short form used in hostnames, tags, Ansible groups, Terraform stacks, and as Proxmox SDN IDs (≤ 8 chars) if SDN is adopted. Proxmox trunks only `shr`, `int` and `dmz`, plus `mgt` untagged on `vmbr0`. `net`, `wif`, `tru` and `trn` never reach a guest.
+A zone hosts guests only if it is routed by the core switch and trunked on `vmbr1` (today: `dmz`, `shr`, `int`, `stg`). Gateway-routed client networks never reach a guest.
 
-### 3.2 Address allocation inside each /24 (`shr`, `int`, `dmz`)
+### 3.2 Address allocation inside each /24 (`shr`, `int`, `dmz`, `stg`)
 
 | Range | Use | Assigned by |
 |---|---|---|
@@ -176,7 +178,7 @@ UniFi network names stay as they are. The zone code is the short form used in ho
 | `.50`–`.99` | Static application and cluster workers | Terraform |
 | `.100`–`.199` | DHCP pool | UniFi |
 | `.200`–`.239` | Load-balancer / service VIPs (e.g. MetalLB, keepalived) | Terraform/Ansible |
-| `.240`–`.254` | Reserved (temporary, migrations). In `int`, this band is where `lab` guests take static IPs | Network Engineer |
+| `.240`–`.254` | Reserved (temporary, migrations) | Network Engineer |
 
 The /29 networks don't use these bands:
 - `mgt` 192.168.67.0/29: `.1` gateway, `.2` PVE host, `.3` OpenClaw, `.4`–`.6` spare. Nothing else ever.
@@ -234,8 +236,8 @@ Mapping of current names: `devops.loximity.dev` (mentioned in the network doc) b
 | 200–299 | `dmz` (VLAN 10) | Reverse proxy / jump / gateway services | Internet-facing apps (`hm1-dmz-guac01`, `hm1-dmz-jump01`) |
 | 300–399 | `shr` (VLAN 20) | `300` DevOps plane `hm1-shr-cicd01` · `301`/`302` DNS `hm1-shr-dns01/02` · `303` OpenBao `hm1-shr-vault01` (protected, 192.168.70.12) · future DCs, IdP, PBS | Shared services (monitoring, logging, databases) |
 | 400–499 | `int` (VLAN 40) | Cluster control planes | Cluster workers, internal apps |
-| 500–799 | Reserved | For future zones (e.g. a dedicated lab VLAN or a new site zone), assigned in the next free block | |
-| 800–899 | `lab` | `800–849` lab guests, auto-destroyed after 48 h (learning mode) | `850–899` drills and DR restore tests |
+| 500–799 | Reserved | For future zones (e.g. a new site zone), assigned in the next free block | |
+| 800–899 | `stg` (VLAN 60) | — | Staging guests: test deploys, CD preview deploys (T6), learning exercises, drills and DR restore tests (e.g. `811` `hm1-stg-web01`) |
 
 Rules inside a block:
 - **`x00–x09` core** holds foundational or protected guests of that zone, which other guests depend on. Anything in `protected.yaml` sits here.
@@ -263,7 +265,7 @@ Node = hostname (`hm1-mgt-pve01`). Future cluster name: `hm1-pvc01` (cluster nam
 `<type>-<media><nn>`: `lvmt-nvme01`, `lvmt-sata01` (live since 2026-10-03), future `zfs-ssd01`, `dir-backup01`, `nfs-nas01`, `pbs-bkp01`. Type ∈ `lvm|lvmt|zfs|dir|nfs|cifs|pbs|ceph`. `local` and `local-lvm` stay as Proxmox ships them unless the disk layout changes.
 
 ### 6.3 Pools
-One pool per zone: `pool-mgt`, `pool-dmz`, `pool-shr`, `pool-int`, `pool-lab` (created 2026-10-03). Pools drive permissions, so keep them few and stable.
+One pool per zone: `pool-mgt`, `pool-dmz`, `pool-shr`, `pool-int`, `pool-stg` (created 2026-10-08; replaced `pool-lab`). Pools drive permissions, so keep them few and stable.
 
 ### 6.4 Templates
 `tpl-<os><version>-<variant>`, no site or zone. Examples: `tpl-ubuntu2604-base` (9000), `tpl-debian13-base`, `tpl-win2025-core` (9100), `tpl-win2025-gui` (9101). LXC templates keep upstream file names in `local:vztmpl`.
@@ -275,14 +277,14 @@ Proxmox tags allow `a-z 0-9 - _ +`, so tags are `key-value`:
 |---|---|---|
 | `zone-` | zone codes | yes |
 | `role-` | role codes | yes |
-| `mgd-` | `tf` (Terraform), `manual`, `lab` | yes |
+| `mgd-` | `tf` (Terraform), `manual` | yes |
 | `owner-` | `infra`, `sys`, `app`, `net`, `sre`, `faris` | yes |
 | `os-` | `ubuntu2604`, `debian13`, `win2025`, … | yes |
 | `patch-` | `ring0` (manual, e.g. CT 100 and 300), `ring1` (auto Sev1/2), `ring2` | yes |
-| `env-` | `prod`, `lab` | optional |
+| `env-` | `prod`, `staging` | optional (`staging` set automatically for `stg` guests) |
 | `protected` | (no value) | on hard-limited guests only |
 
-`mgd-manual` must be the exception: the rebuild aims for every non-lab guest to be `mgd-tf`, including those built "outside DevOps" today.
+`mgd-manual` must be the exception: the rebuild aims for every guest to be `mgd-tf`, including those built "outside DevOps" today.
 
 ### 6.6 HA groups, firewall aliases, IP sets, security groups
 Proxmox firewall objects: alias `<zone>-<hostname-role>` (e.g. `shr-dns`), IP set `ipset-<zone>-<purpose>`, security group `sg-<role>` (e.g. `sg-dns`). HA groups: `ha-<purpose>`.
@@ -336,7 +338,7 @@ Shared admin accounts (`root` login, `devops-admin`) are break-glass only and li
 
 ### 8.5 Secrets (Infrastructure Engineer)
 Secrets live only in **OpenBao** (CT 303). Machine-readable rules: `naming/secrets.yaml`; policies and AppRoles as code: `openbao/` (applied by Faris).
-- Paths (KV v2 mount `secret/`): `hm1/<scope>/<system>[/<sub>]`, scope ∈ `platform`, `dmz`, `shr`, `int`, `lab`. Examples: `hm1/platform/ci/plan`, `hm1/shr/keycloak`. Agents' new secrets: `inbox/<name>` (write-only).
+- Paths (KV v2 mount `secret/`): `hm1/<scope>/<system>[/<sub>]`, scope ∈ `platform`, `dmz`, `shr`, `int`, `stg`. Examples: `hm1/platform/ci/plan`, `hm1/shr/keycloak`. Agents' new secrets: `inbox/<name>` (write-only).
 - Keys: lowercase `snake_case` (`gitea_token_oc_infra`, `pve_token_plan`, `pg_conn`).
 - AppRoles: `<system>-<purpose>` (`ci-plan`, `ci-apply`, `aiops`); AppRole name = policy name; each bound to its client IP.
 - Never in Git: no `secrets/` directory, no `*.sops.yaml`, no plain tokens (the PR lint and gitleaks enforce it).
@@ -378,7 +380,7 @@ Learning tip: editing the YAML yourself is a quick way to see the gate react. Ad
 
 | Check | Rule |
 |---|---|
-| Hostname | `^hm1-(mgt\|net\|dmz\|shr\|int\|lab)-[a-z][a-z0-9]{1,4}[0-9]{2}$`, length ≤ 15, role ∈ `roles.yaml`, zone matches the VLAN of the primary NIC; `net`/`wif`/`tru`/`trn` are rejected for guests |
+| Hostname | `^hm1-(mgt\|net\|dmz\|shr\|int\|stg)-[a-z][a-z0-9]{1,4}[0-9]{2}$`, length ≤ 15, role ∈ `roles.yaml`, zone matches the VLAN of the primary NIC; `net`/`wif`/`tru`/`trn` are rejected for guests |
 | VMID | within the zone's range (§5); not in `protected.yaml` unless the PR is Class C |
 | IP | inside the zone subnet and the right allocation band (§3.2); no `.100–.199` statics |
 | Tags | all required keys present, values from vocab (§6.5); `zone-` tag = hostname zone |
