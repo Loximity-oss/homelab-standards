@@ -54,6 +54,7 @@ def main():
     prot = load(S / "protected.yaml")
     prot_vmids = {int(v) for v in prot.get("vmids", {})}
     prot_bridges = set(prot.get("bridges", []))
+    tpl_lo, tpl_hi = prot.get("templates", [9000, 9199])
     prot_nets = [ipaddress.ip_network(n) for n in prot.get("subnets", [])]
 
     errs = []
@@ -120,6 +121,8 @@ def main():
                 err(rel, f"vmid {vmid} outside zone '{zone}' block {lo}-{hi}")
             if vmid in prot_vmids:
                 err(rel, f"vmid {vmid} is protected (protected.yaml)")
+            if tpl_lo <= vmid <= tpl_hi:
+                err(rel, f"vmid {vmid} is in the template range {tpl_lo}-{tpl_hi} (protected.yaml); templates are never managed")
 
         try:
             ip = ipaddress.ip_address(str(s.get("ip")))

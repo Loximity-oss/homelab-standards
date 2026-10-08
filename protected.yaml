@@ -6,5 +6,9 @@ vmids:
   303: hm1-shr-vault01 (OpenBao secrets store)
 # Protected guests are never in a Proxmox pool: pool rights are added on top of guest rights and would bypass
 # the audit-only ACL for OpenClaw (incident 2026-10-05). Checked nightly by openclaw-nightly-scan.
+# Templates (VM clone sources) are never managed by Terraform. The apply token is clone-only on each one
+# (role DevOpsTemplateUse = VM.Audit + VM.Clone, set by root per template); homelab-infra ci-apply checks it as the
+# token before every apply (decision 32 D5).
+templates: [9000, 9199]
 bridges: [vmbr0]
 subnets: [192.168.67.0/29]
