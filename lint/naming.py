@@ -7,9 +7,13 @@ Exit 0 = clean, 1 = violations (printed one per line as `path: message`).
 import argparse, ipaddress, pathlib, re, sys
 import yaml
 
-REQUIRED = {"hostname", "vmid", "type", "role", "os", "ip", "cores", "memory_mb", "disk_gb", "owner", "patch"}
-OPTIONAL = {"datastore", "description", "swap_mb", "nesting", "env", "keyctl"}
-TYPES = {"lxc"}  # "vm" is added once template 9000 exists
+REQUIRED = {"hostname", "vmid", "type", "role", "os", "ip", "owner", "patch"}
+SIZING = {"cores", "memory_mb", "disk_gb"}          # required for lxc; optional for vm (baseline 2/2048/16, decision 32 D6)
+OPTIONAL = SIZING | {"datastore", "description", "swap_mb", "nesting", "env", "keyctl"}
+LXC_ONLY = {"swap_mb", "nesting", "keyctl"}
+TYPES = {"lxc", "vm"}
+DATASTORES = {"lvmt-nvme01", "lvmt-sata01"}
+VM_MIN_DISK_GB = 8                                 # template 9000 disk
 BRANCH_RE = re.compile(r"^(feat|fix|chore|patch|app|net|learn|docs)/([0-9]+-)?[a-z0-9][a-z0-9-]*$")
 TITLE_RE = re.compile(r"^(WIP:? )?(feat|fix|chore|patch|app|net|learn|docs)(\([a-z0-9-]+\))?!?: \S")
 SECRET_REF_RE = re.compile(r"""\bsecret/(?:data/)?([a-z0-9][a-z0-9/_-]*[a-z0-9])""")
@@ -88,6 +92,15 @@ def main():
         missing, unknown = REQUIRED - set(s), set(s) - REQUIRED - OPTIONAL
         if missing: err(rel, f"missing keys: {sorted(missing)}")
         if unknown: err(rel, f"unknown keys: {sorted(unknown)}")
+        if s.get("type") == "lxc" and SIZING - set(s):
+            err(rel, f"lxc needs {sorted(SIZING - set(s))}")
+        if s.get("type") == "vm":
+            if LXC_ONLY & set(s):
+                err(rel, f"{sorted(LXC_ONLY & set(s))} are lxc-only")
+            if isinstance(s.get("disk_gb"), int) and s["disk_gb"] < VM_MIN_DISK_GB:
+                err(rel, f"disk_gb must be >= {VM_MIN_DISK_GB} for a vm (template disk)")
+        if "datastore" in s and s["datastore"] not in DATASTORES:
+            err(rel, f"datastore must be one of {sorted(DATASTORES)}")
         z = zones.get(zone)
         if not z:
             err(rel, f"stack directory '{zone}' is not a zone code"); continue
