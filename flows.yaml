@@ -1,8 +1,8 @@
 # Inter-zone flow matrix (decision 8 — OPEN). Owner: Network Engineer. Not enforced yet; no UniFi firewall changes in v7.
 # Proposal from design-v7 §3 (row initiates to column):
-#   mgt -> shr, int, dmz, lab: allow
-#   shr -> mgt: deny (pull-only) | shr -> int, dmz: service ports | shr -> lab: allow
+#   mgt -> shr, int, dmz, stg: allow
+#   shr -> mgt: deny (pull-only) | shr -> int, dmz: service ports | shr -> stg: allow
 #   int -> shr: DNS/PKI/IdP/proxy | int -> dmz: deny
-#   dmz -> shr: DNS/proxy | dmz -> mgt, int, lab: deny
-#   lab -> shr: DNS/PKI | lab -> mgt, dmz: deny   (int/lab share VLAN 40: separated by IP band only)
+#   dmz -> shr: DNS/proxy | dmz -> mgt, int, stg: deny
+#   stg -> shr: DNS/PKI | stg -> mgt, dmz, int: deny   (stg has its own VLAN 60)
 flows: {}
