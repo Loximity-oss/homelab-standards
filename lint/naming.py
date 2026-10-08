@@ -14,6 +14,10 @@ LXC_ONLY = {"swap_mb", "nesting", "keyctl"}
 TYPES = {"lxc", "vm"}
 DATASTORES = {"lvmt-nvme01", "lvmt-sata01"}
 VM_MIN_DISK_GB = 8                                 # template 9000 disk
+
+
+def os_family(os_code):  # tests/os/<family>.* in homelab-infra (decision 32: no OS deploys without its baseline tests)
+    return "ubuntu" if os_code.startswith("ubuntu") else "debian" if os_code.startswith("debian") else "windows" if os_code.startswith("win") else os_code
 BRANCH_RE = re.compile(r"^(feat|fix|chore|patch|app|net|learn|docs)/([0-9]+-)?[a-z0-9][a-z0-9-]*$")
 TITLE_RE = re.compile(r"^(WIP:? )?(feat|fix|chore|patch|app|net|learn|docs)(\([a-z0-9-]+\))?!?: \S")
 SECRET_REF_RE = re.compile(r"""\bsecret/(?:data/)?([a-z0-9][a-z0-9/_-]*[a-z0-9])""")
@@ -99,6 +103,10 @@ def main():
                 err(rel, f"{sorted(LXC_ONLY & set(s))} are lxc-only")
             if isinstance(s.get("disk_gb"), int) and s["disk_gb"] < VM_MIN_DISK_GB:
                 err(rel, f"disk_gb must be >= {VM_MIN_DISK_GB} for a vm (template disk)")
+        if isinstance(s.get("os"), str):
+            fam = os_family(s["os"])
+            if not list((pathlib.Path(a.infra) / "tests" / "os").glob(f"{fam}.*")):
+                err(rel, f"os '{s['os']}' has no baseline tests (homelab-infra tests/os/{fam}.*): add them first")
         if "datastore" in s and s["datastore"] not in DATASTORES:
             err(rel, f"datastore must be one of {sorted(DATASTORES)}")
         z = zones.get(zone)
