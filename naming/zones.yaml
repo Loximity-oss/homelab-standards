@@ -63,6 +63,18 @@ zones:
     vmid: [800, 899]
     pool: pool-lab
     ip_bands: {static: [240, 254]}
+  stg:
+    name: Staging (replaces lab; v7.1 decision 29)
+    vlan: 60
+    cidr: 192.168.76.0/24
+    gateway: 192.168.76.1
+    bridge: vmbr1
+    router: lox-coresw-01
+    dhcp: [100, 199]
+    guests: true
+    vmid: [800, 899]
+    pool: pool-stg
+    ip_bands: {static: [10, 99], vip: [200, 239]}
   tru:
     name: Trusted
     vlan: 50
