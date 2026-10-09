@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only: every zone in naming/zones.yaml must match its UniFi network (VLAN, subnet, gateway). design-v7 decision 7.
 Usage: check-unifi.py <standards_dir>   env: UNIFI_CI_USER, UNIFI_CI_PASS (read-only UniFi local user), UNIFI_HOST.
-Exit 0 = match (or no credential yet: prints a warning), 1 = mismatch."""
+Exit 0 = match, 1 = mismatch, 2 = skipped (no UniFi CI credential; shown as ⚠️, does not fail the PR)."""
 import ipaddress, json, os, ssl, sys, urllib.request, http.cookiejar, yaml
 
 S = sys.argv[1]
@@ -9,8 +9,8 @@ HOST = os.environ.get("UNIFI_HOST", "192.168.68.1")
 user, pw = os.environ.get("UNIFI_CI_USER"), os.environ.get("UNIFI_CI_PASS")
 zones = yaml.safe_load(open(f"{S}/naming/zones.yaml"))["zones"]
 if not user or not pw:
-    print("WARNING: no UniFi CI credential in OpenBao (secret/hm1/platform/ci/plan unifi_ci_user/unifi_ci_pass) - check skipped")
-    sys.exit(0)
+    print("skipped: no UniFi CI credential in OpenBao (secret/hm1/platform/ci/plan unifi_ci_user/unifi_ci_pass)")
+    sys.exit(2)
 ctx = ssl._create_unverified_context()   # UDM self-signed; read-only call
 jar = http.cookiejar.CookieJar()
 op = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx), urllib.request.HTTPCookieProcessor(jar))
