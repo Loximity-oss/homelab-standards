@@ -7,9 +7,17 @@ Exit 0 = clean, 1 = violations (printed one per line as `path: message`).
 import argparse, ipaddress, pathlib, re, sys
 import yaml
 
-REQUIRED = {"hostname", "vmid", "type", "role", "os", "ip", "cores", "memory_mb", "disk_gb", "owner", "patch"}
-OPTIONAL = {"datastore", "description", "swap_mb", "nesting", "env", "keyctl"}
-TYPES = {"lxc"}  # "vm" is added once template 9000 exists
+REQUIRED = {"hostname", "vmid", "type", "role", "os", "ip", "owner", "patch"}
+SIZING = {"cores", "memory_mb", "disk_gb"}          # required for lxc; optional for vm (baseline 2/2048/16, decision 32 D6)
+OPTIONAL = SIZING | {"datastore", "description", "swap_mb", "nesting", "env", "keyctl"}
+LXC_ONLY = {"swap_mb", "nesting", "keyctl"}
+TYPES = {"lxc", "vm"}
+DATASTORES = {"lvmt-nvme01", "lvmt-sata01"}
+VM_MIN_DISK_GB = 8                                 # template 9000 disk
+
+
+def os_family(os_code):  # tests/os/<family>.* in homelab-infra (decision 32: no OS deploys without its baseline tests)
+    return "ubuntu" if os_code.startswith("ubuntu") else "debian" if os_code.startswith("debian") else "windows" if os_code.startswith("win") else os_code
 BRANCH_RE = re.compile(r"^(feat|fix|chore|patch|app|net|learn|docs)/([0-9]+-)?[a-z0-9][a-z0-9-]*$")
 TITLE_RE = re.compile(r"^(WIP:? )?(feat|fix|chore|patch|app|net|learn|docs)(\([a-z0-9-]+\))?!?: \S")
 SECRET_REF_RE = re.compile(r"""\bsecret/(?:data/)?([a-z0-9][a-z0-9/_-]*[a-z0-9])""")
@@ -54,11 +62,24 @@ def main():
     prot = load(S / "protected.yaml")
     prot_vmids = {int(v) for v in prot.get("vmids", {})}
     prot_bridges = set(prot.get("bridges", []))
+    tpl_lo, tpl_hi = prot.get("templates", [9000, 9199])
     prot_nets = [ipaddress.ip_network(n) for n in prot.get("subnets", [])]
 
     errs = []
     def err(path, msg):
         errs.append(f"{path}: {msg}")
+
+    # v7.1: every guest zone needs an OpenBao namespace (one-time guest secrets) and a PKI role (ACME)
+    ob = S / "openbao"
+    if (ob / "namespaces.yaml").exists():
+        nss = set(load(ob / "namespaces.yaml").get("namespaces", []))
+        pki_roles = set((load(ob / "pki.yaml").get("roles") or {})) if (ob / "pki.yaml").exists() else set()
+        for zc, zv in zones.items():
+            if zv.get("guests"):
+                if zc not in nss:
+                    err("openbao/namespaces.yaml", f"guest zone {zc} has no OpenBao namespace")
+                if zc not in pki_roles:
+                    err("openbao/pki.yaml", f"guest zone {zc} has no PKI role")
 
     seen = {"hostname": {}, "vmid": {}, "ip": {}}
 
@@ -75,6 +96,19 @@ def main():
         missing, unknown = REQUIRED - set(s), set(s) - REQUIRED - OPTIONAL
         if missing: err(rel, f"missing keys: {sorted(missing)}")
         if unknown: err(rel, f"unknown keys: {sorted(unknown)}")
+        if s.get("type") == "lxc" and SIZING - set(s):
+            err(rel, f"lxc needs {sorted(SIZING - set(s))}")
+        if s.get("type") == "vm":
+            if LXC_ONLY & set(s):
+                err(rel, f"{sorted(LXC_ONLY & set(s))} are lxc-only")
+            if isinstance(s.get("disk_gb"), int) and s["disk_gb"] < VM_MIN_DISK_GB:
+                err(rel, f"disk_gb must be >= {VM_MIN_DISK_GB} for a vm (template disk)")
+        if isinstance(s.get("os"), str):
+            fam = os_family(s["os"])
+            if not list((pathlib.Path(a.infra) / "tests" / "os").glob(f"{fam}.*")):
+                err(rel, f"os '{s['os']}' has no baseline tests (homelab-infra tests/os/{fam}.*): add them first")
+        if "datastore" in s and s["datastore"] not in DATASTORES:
+            err(rel, f"datastore must be one of {sorted(DATASTORES)}")
         z = zones.get(zone)
         if not z:
             err(rel, f"stack directory '{zone}' is not a zone code"); continue
@@ -108,6 +142,8 @@ def main():
                 err(rel, f"vmid {vmid} outside zone '{zone}' block {lo}-{hi}")
             if vmid in prot_vmids:
                 err(rel, f"vmid {vmid} is protected (protected.yaml)")
+            if tpl_lo <= vmid <= tpl_hi:
+                err(rel, f"vmid {vmid} is in the template range {tpl_lo}-{tpl_hi} (protected.yaml); templates are never managed")
 
         try:
             ip = ipaddress.ip_address(str(s.get("ip")))

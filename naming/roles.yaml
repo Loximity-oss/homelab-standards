@@ -21,6 +21,7 @@ roles:
   app: Single-purpose app with no better code (avoid)
   ws: Workstation
   web: Web server (generic HTTP service)
+  tst: Throwaway test guest (stg only; CD acceptance, drills)
   gw: Gateway (network device)
   csw: Core switch (network device)
   asw: Access switch (network device)

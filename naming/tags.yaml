@@ -1,12 +1,12 @@
 # Proxmox tags, key-value, lowercase. Must match the host's registered-tags (datacenter options).
 required: [zone, role, mgd, owner, os, patch]
 keys:
-  zone: [mgt, dmz, shr, int, lab]
+  zone: [mgt, dmz, shr, int, stg, wifi]
   role: [pve, aiops, cicd, dns, dc, idp, pki, vault, jump, guac, rp, mon, log, db, k3sc, k3sw, nas, bkp, app, ws, web]
-  mgd: [tf, manual, lab]
+  mgd: [tf, manual]
   owner: [infra, cfg, net, sre, faris]
   os: [ubuntu2604, debian13, win2025]
   patch: [ring0, ring1, ring2]
-  env: [prod, lab]
+  env: [prod, staging]
   feat: [keyctl]       # container features set by host/pve-feature-broker (option B, 2026-10-08)
 flags: [protected]

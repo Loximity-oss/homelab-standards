@@ -1,8 +1,13 @@
 # Inter-zone flow matrix (decision 8 — OPEN). Owner: Network Engineer. Not enforced yet; no UniFi firewall changes in v7.
 # Proposal from design-v7 §3 (row initiates to column):
-#   mgt -> shr, int, dmz, lab: allow
-#   shr -> mgt: deny (pull-only) | shr -> int, dmz: service ports | shr -> lab: allow
+#   mgt -> shr, int, dmz, stg: allow
+#   shr -> mgt: deny (pull-only) | shr -> int, dmz: service ports | shr -> stg: allow
 #   int -> shr: DNS/PKI/IdP/proxy | int -> dmz: deny
-#   dmz -> shr: DNS/proxy | dmz -> mgt, int, lab: deny
-#   lab -> shr: DNS/PKI | lab -> mgt, dmz: deny   (int/lab share VLAN 40: separated by IP band only)
+#   dmz -> shr: DNS/proxy | dmz -> mgt, int, stg: deny
+#   stg -> shr: DNS/PKI | stg -> mgt, dmz, int: deny   (stg has its own VLAN 60)
+# wifi guest zone (Faris 2026-10-09; gateway-routed, so these are UDM zone-firewall policies, Class C):
+#   shr (hm1-shr-cicd01 192.168.70.20) -> wifi guests: SSH 22 (Ansible, pipeline tests)
+#   tru, wifi, iot, gst, int, dmz, stg -> wifi DNS guests (192.168.69.10-11): DNS 53 tcp/udp; tru -> admin UI 80/443
+#   wifi guests -> internet: DNS 53 / DoT 853 / HTTPS 443 (upstreams, updates) | wifi guests -> shr: PKI/OpenBao 8200
+#   wifi guests -> mgt, net, int, dmz, stg: deny
 flows: {}
