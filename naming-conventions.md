@@ -160,13 +160,13 @@ Source of truth: `homelab-standards/naming/zones.yaml`, owned by the **Network E
 | `int` | Internal | 40 | 192.168.72.0/24 | `lox-coresw-01` | Server | Guests — clusters and internal workloads |
 | `stg` | Staging | 60 | 192.168.76.0/24 | `lox-coresw-01` | Server | Guests — staging, test and CD preview deploys, VMIDs 8xx (decision 29; replaced `lab`, 2026-10-08) |
 | `tru` | Trusted | 50 | 192.168.73.0/28 | `lox-gw-01` | Server | Trusted admin endpoints. No guests |
-| `iot` | IoT | 100 | 192.168.74.0/24 | `lox-gw-01` | Server | Clients. No guests (decision 1 open) |
+| `iot` | IoT | 100 | 192.168.74.0/24 | `lox-gw-01` | Server (`.100`–`.254`) | Clients **and guests** (Faris, 2026-10-11; decision 1 decided for `iot`). VMIDs 6xx, statics `.10`–`.99`. First use: AdGuard DNS |
 | `wifi` | WiFi | 110 | 192.168.69.0/24 | `lox-gw-01` | Server (`.100`–`.254`) | Clients **and guests** (Faris, 2026-10-09; decision 1 decided for `wifi` only). VMIDs 5xx, statics `.10`–`.99`. First use: AdGuard DNS |
 | `gst` | Guest | 120 | 192.168.75.0/24 | `lox-gw-01` | Server | Clients. No guests (decision 1 open) |
 | `net` | Management-Ubiquiti | 1 | 192.168.68.0/24 | `lox-gw-01` | Server | Network devices only |
 | `trn` | Inter-VLAN routing | 4040 | 10.255.253.0/24 | `lox-gw-01` | none | Transit between gateway and core switch. No hosts |
 
-A zone hosts guests only if it is trunked on `vmbr1` and routed by the core switch (today: `dmz`, `shr`, `int`, `stg`). **One exception, `wifi`** (Faris, 2026-10-09): VLAN 110 is tagged on `vmbr1` but routed by `lox-gw-01`, so traffic between `wifi` guests and other zones crosses the gateway's zone firewall, and the guests share their L2 segment with wireless clients. The other gateway-routed networks (`tru`, `iot`, `gst`, `net`, `trn`) never host guests.
+A zone hosts guests only if it is trunked on `vmbr1` and routed by the core switch (today: `dmz`, `shr`, `int`, `stg`). **Two exceptions, `wifi` (Faris, 2026-10-09) and `iot` (Faris, 2026-10-11)**: VLANs 110 and 100 are tagged on `vmbr1` but routed by `lox-gw-01`, so traffic between their guests and other zones crosses the gateway's zone firewall, and the guests share their L2 segment with the clients (wireless / IoT devices). The other gateway-routed networks (`tru`, `gst`, `net`, `trn`) never host guests.
 
 ### 3.2 Address allocation inside each /24 (`shr`, `int`, `dmz`, `stg`)
 
@@ -185,6 +185,8 @@ The /29 networks don't use these bands:
 - `tru` 192.168.73.0/29: `.1` gateway, `.2`–`.6` DHCP for trusted endpoints. No servers.
 
 `wifi` 192.168.69.0/24: `.1` gateway (`lox-gw-01`), `.2`–`.9` network-infra reserved, `.10`–`.99` static guests (Terraform), `.100`–`.254` DHCP for wireless clients (UniFi). No VIP band: `.200`–`.239` lies inside the DHCP pool.
+
+`iot` 192.168.74.0/24: same bands as `wifi` (`.10`–`.99` static guests, `.100`–`.254` DHCP for IoT devices).
 
 `net` is UniFi-managed (DHCP) and out of scope for guest addressing.
 
@@ -239,13 +241,14 @@ Mapping of current names: `devops.loximity.dev` (mentioned in the network doc) b
 | 300–399 | `shr` (VLAN 20) | `300` DevOps plane `hm1-shr-cicd01` · `301`/`302` DNS `hm1-shr-dns01/02` · `303` OpenBao `hm1-shr-vault01` (protected, 192.168.70.12) · future DCs, IdP, PBS | Shared services (monitoring, logging, databases) |
 | 400–499 | `int` (VLAN 40) | Cluster control planes | Cluster workers, internal apps |
 | 500–599 | `wifi` (VLAN 110, Faris 2026-10-09) | `501`/`502` DNS (AdGuard) `hm1-wifi-dns01/02` | Other guests serving wireless clients |
-| 600–799 | Reserved | For future zones (e.g. a new site zone), assigned in the next free block | |
+| 600–699 | `iot` (VLAN 100, Faris 2026-10-11) | `601`/`602` DNS (AdGuard) `hm1-iot-dns01/02` | Other guests serving IoT devices |
+| 700–799 | Reserved | For future zones (e.g. a new site zone), assigned in the next free block | |
 | 800–899 | `stg` (VLAN 60) | — | Staging guests: test deploys, CD preview deploys (T6), learning exercises, drills and DR restore tests (e.g. `811` `hm1-stg-web01`) |
 
 Rules inside a block:
 - **`x00–x09` core** holds foundational or protected guests of that zone, which other guests depend on. Anything in `protected.yaml` sits here.
 - **`x10–x99`** holds everything else, assigned in order.
-- `net`, `tru`, `iot`, `gst` and `trn` never host guests, so they get no block.
+- `net`, `tru`, `gst` and `trn` never host guests, so they get no block.
 
 Not zones, so outside the scheme:
 
@@ -268,7 +271,7 @@ Node = hostname (`hm1-mgt-pve01`). Future cluster name: `hm1-pvc01` (cluster nam
 `<type>-<media><nn>`: `lvmt-nvme01`, `lvmt-sata01` (live since 2026-10-03), future `zfs-ssd01`, `dir-backup01`, `nfs-nas01`, `pbs-bkp01`. Type ∈ `lvm|lvmt|zfs|dir|nfs|cifs|pbs|ceph`. `local` and `local-lvm` stay as Proxmox ships them unless the disk layout changes.
 
 ### 6.3 Pools
-One pool per zone: `pool-mgt`, `pool-dmz`, `pool-shr`, `pool-int`, `pool-stg` (created 2026-10-08; replaced `pool-lab`), `pool-wifi` (created by `ci/apply-proxmox.py` when the `wifi` zone merges). Pools drive permissions, so keep them few and stable.
+One pool per zone: `pool-mgt`, `pool-dmz`, `pool-shr`, `pool-int`, `pool-stg` (created 2026-10-08; replaced `pool-lab`), `pool-wifi`, `pool-iot` (created by `ci/apply-proxmox.py` when the zone merges). Pools drive permissions, so keep them few and stable.
 
 ### 6.4 Templates
 `tpl-<os><version>-<variant>`, no site or zone. Examples: `tpl-ubuntu2604-base` (9000), `tpl-debian13-base`, `tpl-win2025-core` (9100), `tpl-win2025-gui` (9101). LXC templates keep upstream file names in `local:vztmpl`.
