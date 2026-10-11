@@ -77,8 +77,13 @@ zones:
     vlan: 100
     cidr: 192.168.74.0/24
     gateway: 192.168.74.1
-    router: lox-gw-01
-    guests: false        # client network; decision 1 (deferred)
+    bridge: vmbr1
+    router: lox-gw-01    # gateway-routed exception like wifi (Faris, 2026-10-11)
+    dhcp: [100, 254]     # UniFi IoT DHCP pool AFTER Faris shrinks it (today .6-.254; the UniFi check fails until then)
+    guests: true         # client network that also hosts guests (decision 1 decided for iot: AdGuard DNS)
+    vmid: [600, 699]
+    pool: pool-iot
+    ip_bands: {static: [10, 99]}   # no vip band: .200-.239 lies inside the DHCP pool
   wifi:
     name: WiFi
     vlan: 110

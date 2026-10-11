@@ -10,4 +10,9 @@
 #   tru, wifi, iot, gst, int, dmz, stg -> wifi DNS guests (192.168.69.10-11): DNS 53 tcp/udp; tru -> admin UI 80/443
 #   wifi guests -> internet: DNS 53 / DoT 853 / HTTPS 443 (upstreams, updates) | wifi guests -> shr: PKI/OpenBao 8200
 #   wifi guests -> mgt, net, int, dmz, stg: deny
+# iot guest zone (Faris 2026-10-11; gateway-routed like wifi, UDM zone-firewall policies, Class C):
+#   shr (hm1-shr-cicd01 192.168.70.20) -> iot guests: SSH 22 (Ansible, pipeline tests)
+#   iot clients -> iot DNS guests (192.168.74.10-11): DNS 53 tcp/udp (same L2, no firewall) | tru -> admin UI 80/443
+#   iot guests -> internet: DNS 53 / DoT 853 / HTTPS 443 | iot guests -> shr: PKI/OpenBao 8200
+#   iot guests -> mgt, net, int, dmz, stg, wifi: deny
 flows: {}
