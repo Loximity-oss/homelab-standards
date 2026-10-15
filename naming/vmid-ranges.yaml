@@ -19,5 +19,5 @@ template_lifecycle:
   scratch: [9990, 9999]                # build / candidate / verify VMIDs inside 'temporary'; deleted by the build job
   import_storage: dir-import01         # dir storage, content import,backup; API upload only (no download-url, no Sys.Modify)
   build_ip: "naming/zones.yaml stg reserved_ips value 'template-build' (Network Engineer)"
-  mgd_tag: tmp                         # mgd-tmp on pipeline-built templates (PM's reading of Faris's 'use tmp'; confirm)
+  mgd_tag: tpl                         # mgd-tpl on pipeline-built templates (Faris 2026-10-15; 'tpl' as in naming-conventions 6.4)
   refresh_default: monthly
