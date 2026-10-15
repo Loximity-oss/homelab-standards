@@ -3,5 +3,9 @@
 # Layout inside each namespace:
 #   secret/guests/<hostname>   provisioning secrets (admin password, SSH host keys) — pipeline writes once (create-only); Faris reads
 #   secret/apps/<app>          app secrets — Configuration Engineer stores (create-only); Ansible renders at deploy; agents see names only
+#   secret/apps/<app>/<host>   app secrets generated at deploy (e.g. AdGuard admin password) — pipeline writes once (create-only); Faris reads
+# Every zone gets the same treatment (Faris 2026-10-16, after the iot AdGuard 403): a policy path into zone namespaces
+# always starts with `+/` (never a zone name), so a grant made for one zone covers every namespace listed below; a new
+# zone needs only its entry here (apply.sh creates the namespace and KV `secret/`), never a policy edit.
 mode: namespace          # namespace | mount (fallback if namespaces are unavailable: KV mounts secret-<zone>/ in the root namespace)
 namespaces: [shr, int, dmz, stg, wifi, iot]
