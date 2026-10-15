@@ -15,4 +15,11 @@
 #   iot clients -> iot DNS guests (192.168.74.10-11): DNS 53 tcp/udp (same L2, no firewall) | tru -> admin UI 80/443
 #   iot guests -> internet: DNS 53 / DoT 853 / HTTPS 443 | iot guests -> shr: PKI/OpenBao 8200
 #   iot guests -> mgt, net, int, dmz, stg, wifi: deny
+# stg template-build host (Faris 2026-10-15, homelab-infra #53; reserved IP 192.168.76.250 in naming/zones.yaml;
+# seal/verify boots of scratch VMs 9990-9992; stg is routed by lox-coresw-01, internet egress via lox-gw-01):
+#   shr (hm1-shr-cicd01 192.168.70.20) -> internet: HTTPS 443 (vendor image mirrors; template runner download)
+#   shr (hm1-shr-cicd01 192.168.70.20) -> template-build (192.168.76.250): SSH 22 (seal + verify)
+#   template-build (192.168.76.250) -> internet: HTTP 80 / HTTPS 443 (pacman/dnf/apt mirrors, nix cache, github)
+#   template-build (192.168.76.250) -> 1.1.1.1, 8.8.8.8: DNS 53 tcp/udp (exception to stg -> shr DNS)
+#   template-build (192.168.76.250) -> mgt, net, shr, int, dmz, wifi, iot: deny (replies to CT 300 SSH only)
 flows: {}

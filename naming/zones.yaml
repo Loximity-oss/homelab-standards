@@ -65,6 +65,8 @@ zones:
     vmid: [800, 899]
     pool: pool-stg
     ip_bands: {static: [10, 99], vip: [200, 239]}
+    reserved_ips:            # .240-.254 reserved band; not for guest specs
+      192.168.76.250: template-build (seal/verify boots)   # homelab-infra docs/templates.md step 4; scratch VMs 9990-9992
   tru:
     name: Trusted
     vlan: 50
