@@ -4,16 +4,20 @@ templates_linux: [9000, 9099]
 templates_windows: [9100, 9199]
 temporary: [9900, 9999]
 core_slots: "x00-x09 of each zone block: foundational / protected guests"
-# PROPOSED (Faris decides; companion changes to protected.yaml and openbao/ are Faris-owned).
-# Templates stay clone-only for the apply token (protected.yaml, decision 32 D5; scripts/template-guard.py unchanged).
-# They are built and refreshed only by the template pipeline (identity svc-tpl-build@pve!pipeline, per-VMID ACLs on
-# builder_ranges + scratch only) from a reviewed spec in homelab-infra. Never by guest Terraform stacks, never by a shell.
+# Template lifecycle (Faris decisions 1-7, 2026-10-15; standards PR #17).
+# Templates stay clone-only for the apply token (protected.yaml, decision 32 D5; homelab-infra scripts/template-guard.py
+# unchanged). They are built and refreshed only by the homelab-infra `template` workflow (runner host-template) with the
+# builder token, from a reviewed spec. Never by guest Terraform stacks, never by an agent or a shell on the PVE host.
 template_lifecycle:
   owner: oc-infra                      # writes specs, opens build/refresh PRs, keeps the catalogue current
-  approver: faris                      # every template PR is Class C: new, refresh, settings, delete
+  approver: faris                      # Class C: new/retired/renamed spec, settings, keys, nixos config, range/identity/rules
+  minor_refresh_class: B               # only source.url/sha256/version/signature.url/nixpkgs_rev of an existing spec, same url host
   in_guest_requirements: configuration-engineer   # homelab-infra docs/apps/vm-templates.md
   specs: "homelab-infra terraform/templates/hm1/<vmid>-<name>.yaml"
-  builder: "svc-tpl-build@pve!pipeline"
-  builder_ranges: [[9000, 9099]]       # Linux only; Windows 9100-9199 stays manual until an ISO/Packer path exists
-  scratch: [9990, 9999]                # build and verify-clone VMIDs inside 'temporary'; deleted by the build job
+  builder: "svc-tpl-build@pve!pipeline"   # role DevOpsTemplateBuild, per-VMID ACLs on builder_ranges + scratch, never a pool
+  builder_ranges: [[9000, 9099]]       # Linux only, 9000 included (refresh); Windows 9100-9199 stays manual
+  scratch: [9990, 9999]                # build / candidate / verify VMIDs inside 'temporary'; deleted by the build job
+  import_storage: dir-import01         # dir storage, content import,backup; API upload only (no download-url, no Sys.Modify)
+  build_ip: "naming/zones.yaml stg reserved_ips value 'template-build' (Network Engineer)"
+  mgd_tag: tmp                         # mgd-tmp on pipeline-built templates (PM's reading of Faris's 'use tmp'; confirm)
   refresh_default: monthly
