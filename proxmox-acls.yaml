@@ -1,0 +1,49 @@
+# Proxmox roles and ACLs that must exist on hm1-mgt-pve01 (source of truth; Faris-only, Class C).
+# Applied and re-applied by root only, never by the pipeline (a token that can modify ACLs can grant itself anything).
+# PVE deletes /vms/<id> ACLs whenever that guest is destroyed or restored, purge or not (runbook #35, homelab-infra
+# #58): every `vms` entry must be re-applied after a destroy, and is re-applied automatically by root's re-apply job
+# (planned: pve-feature-broker reads this file). Entries only ever add the listed role; nothing here removes or widens.
+# Captured from the live host 2026-10-15.
+
+roles:   # custom roles (built-ins: NoAccess, PVEAuditor, PVEDatastoreUser, PVESDNUser)
+  DevOpsAdmin: [Datastore.Allocate, Datastore.AllocateSpace, Datastore.AllocateTemplate, Datastore.Audit, Mapping.Audit,
+                Mapping.Modify, Mapping.Use, Pool.Allocate, Pool.Audit, SDN.Allocate, SDN.Audit, SDN.Use, Sys.AccessNetwork,
+                Sys.Audit, Sys.Incoming, Sys.Modify, Sys.PowerMgmt, Sys.Syslog, VM.Allocate, VM.Audit, VM.Backup, VM.Clone,
+                VM.Config.CDROM, VM.Config.CPU, VM.Config.Cloudinit, VM.Config.Disk, VM.Config.HWType, VM.Config.Memory,
+                VM.Config.Network, VM.Config.Options, VM.Console, VM.GuestAgent.Audit, VM.GuestAgent.FileRead,
+                VM.GuestAgent.FileSystemMgmt, VM.GuestAgent.FileWrite, VM.GuestAgent.Unrestricted, VM.Migrate,
+                VM.PowerMgmt, VM.Replicate, VM.Snapshot, VM.Snapshot.Rollback]
+  DevOpsPlan: [Datastore.Audit, Mapping.Audit, Pool.Audit, SDN.Audit, Sys.Audit, VM.Audit, VM.Config.Disk, VM.GuestAgent.Audit]
+  OpenClawOperator: [Datastore.AllocateSpace, Datastore.Audit, Pool.Audit, SDN.Audit, Sys.Audit, Sys.Syslog, VM.Audit, VM.Backup,
+                     VM.Config.CDROM, VM.Console, VM.GuestAgent.Audit, VM.GuestAgent.FileRead, VM.Migrate, VM.PowerMgmt,
+                     VM.Snapshot, VM.Snapshot.Rollback]
+  DevOpsTemplateUse: [VM.Audit, VM.Clone]                       # apply token on templates: clone-only (decision 32 D5)
+  DevOpsTemplateBuild: [VM.Allocate, VM.Audit, VM.Backup, VM.Clone, VM.Config.CDROM, VM.Config.CPU, VM.Config.Cloudinit,
+                        VM.Config.Disk, VM.Config.HWType, VM.Config.Memory, VM.Config.Network, VM.Config.Options,
+                        VM.GuestAgent.Audit, VM.PowerMgmt]      # svc-tpl-build (standards #17, homelab-infra #53)
+  DevOpsTemplateStore: [Datastore.AllocateSpace, Datastore.AllocateTemplate, Datastore.Audit]   # dir-import01
+
+identities:   # user + its privsep API token; an ACL entry applies to both unless noted
+  apply: {user: svc-tf-apply@pve, token: "svc-tf-apply@pve!pipeline"}
+  plan: {user: svc-tf-plan@pve, token: "svc-tf-plan@pve!pipeline"}
+  builder: {user: svc-tpl-build@pve, token: "svc-tpl-build@pve!pipeline"}
+  openclaw: {user: svc-aiops-ops@pve}               # token svc-aiops-ops@pve!agent inherits (privsep 0)
+  metrics: {user: svc-metrics@pve}
+
+acls:
+  # path-level (not dropped by guest destroys)
+  - {path: /, role: DevOpsAdmin, to: [apply]}
+  - {path: /, role: DevOpsPlan, to: [plan]}
+  - {path: /, role: OpenClawOperator, to: [openclaw]}
+  - {path: /, role: PVEAuditor, to: [metrics]}
+  - {path: /sdn/zones/localnetwork/vmbr0, role: NoAccess, to: [apply, plan, openclaw]}   # protected bridge
+  - {path: /sdn/zones/localnetwork/vmbr1/60, role: PVESDNUser, to: [builder]}           # stg VLAN only
+  - {path: /storage/dir-import01, role: DevOpsTemplateStore, to: [builder]}
+  - {path: /storage/lvmt-nvme01, role: PVEDatastoreUser, to: [builder]}
+
+vms:   # per-VMID: dropped by PVE on destroy/restore -> re-applied by root
+  - {vmids: [100, 300, 303], role: NoAccess, to: [apply, plan]}          # protected guests (protected.yaml)
+  - {vmids: [100, 300, 303], role: PVEAuditor, to: [openclaw]}           # OpenClaw audit-only on protected guests
+  - {ranges: [[9000, 9099], [9990, 9999]], role: DevOpsTemplateBuild, to: [builder]}   # vmid-ranges.yaml template_lifecycle
+  - {ranges: [[9000, 9099]], role: DevOpsTemplateUse, to: [apply]}       # templates clone-only for the apply token
+  - {vmids: [9000], role: PVEAuditor, to: [plan]}
