@@ -5,7 +5,7 @@ keys:
   role: [pve, aiops, cicd, dns, dc, idp, pki, vault, jump, guac, rp, mon, log, db, k3sc, k3sw, nas, bkp, app, ws, web]
   mgd: [tf, manual]
   owner: [infra, cfg, net, sre, faris]
-  os: [ubuntu2604, debian13, win2025]
+  os: [ubuntu2604, debian13, win2025, arch, nixos, fedora44]
   patch: [ring0, ring1, ring2]
   env: [prod, staging]
   feat: [keyctl]       # container features set by host/pve-feature-broker (option B, 2026-10-08)
