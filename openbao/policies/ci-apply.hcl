@@ -4,3 +4,5 @@ path "secret/data/hm1/platform/ci/apply" { capabilities = ["read"] }
 path "+/secret/data/guests/*" { capabilities = ["create"] }
 # app secrets generated at deploy (create-only, never read back): AdGuard admin password per DNS guest (infra #45)
 path "+/secret/data/apps/adguard/*" { capabilities = ["create"] }
+# k3s cluster tokens escrowed at deploy (create-only, never read back): server/agent join tokens (infra #84)
+path "+/secret/data/apps/k3s/*" { capabilities = ["create"] }
