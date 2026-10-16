@@ -22,4 +22,7 @@
 #   template-build (192.168.76.250) -> internet: HTTP 80 / HTTPS 443 (pacman/dnf/apt mirrors, nix cache, github)
 #   template-build (192.168.76.250) -> 1.1.1.1, 8.8.8.8: DNS 53 tcp/udp (exception to stg -> shr DNS)
 #   template-build (192.168.76.250) -> mgt, net, shr, int, dmz, wifi, iot: deny (replies to CT 300 SSH only)
+# OpenClaw dashboard (Faris 2026-10-15, homelab/openclaw e417d97; read-only, no auth, shows no secrets or tool output):
+#   tru (Faris admin, 192.168.73.0/28) -> hm1-mgt-aiops01 (192.168.67.3): HTTP 9180/tcp
+#   no host firewall on CT 100: any zone that can route to mgt reaches it; other zones -> mgt stay deny per the matrix above
 flows: {}
