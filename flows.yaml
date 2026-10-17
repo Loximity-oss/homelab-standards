@@ -31,6 +31,7 @@
 # gst 192.168.75.0/24 -> zone 'Untrusted Networks'. Internal -> Untrusted Networks is predefined 'Block All Traffic'.
 #   iot  shr 192.168.70.20 -> 192.168.74.10-11 tcp/22   IMPLEMENTED  'Allow SHRSVC to IoT DNS LXC' (return auto-allowed)
 #   wifi shr 192.168.70.20 -> 192.168.69.10-11 tcp/22   MISSING      blocks hm1-wifi-dns01/02 (homelab-infra #86: L2 ssh timeout)
-#   wifi Internal zones -> 192.168.69.10-11 tcp/udp 53, tru -> 80/443   MISSING
-#   wifi iot/gst -> 192.168.69.10-11 tcp/udp 53 (Untrusted -> Untrusted, before 'Isolated Networks')   MISSING, Faris to decide
+# Internal-network DNS (tru/int/dmz/stg -> wifi DNS 53, tru -> wifi DNS admin UI 80/443): design pending Faris
+# (2026-10-17). The 2026-10-09 lines above stay as recorded; nothing is planned or implemented for these until then.
+# iot/gst -> wifi DNS 53: undecided (Faris open question).
 flows: {}
