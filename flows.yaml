@@ -25,4 +25,12 @@
 # OpenClaw dashboard (Faris 2026-10-15, homelab/openclaw e417d97; read-only, no auth, shows no secrets or tool output):
 #   tru (Faris admin, 192.168.73.0/28) -> hm1-mgt-aiops01 (192.168.67.3): HTTP 9180/tcp
 #   no host firewall on CT 100: any zone that can route to mgt reaches it; other zones -> mgt stay deny per the matrix above
+#
+# UniFi implementation state of the gateway-routed guest flows (checked 2026-10-17 by oc-net, read-only).
+# UniFi zones: shr/int/dmz/stg/tru/mgt networks -> zone 'Internal'; wifi 192.168.69.0/24, iot 192.168.74.0/24,
+# gst 192.168.75.0/24 -> zone 'Untrusted Networks'. Internal -> Untrusted Networks is predefined 'Block All Traffic'.
+#   iot  shr 192.168.70.20 -> 192.168.74.10-11 tcp/22   IMPLEMENTED  'Allow SHRSVC to IoT DNS LXC' (return auto-allowed)
+#   wifi shr 192.168.70.20 -> 192.168.69.10-11 tcp/22   MISSING      blocks hm1-wifi-dns01/02 (homelab-infra #86: L2 ssh timeout)
+#   wifi Internal zones -> 192.168.69.10-11 tcp/udp 53, tru -> 80/443   MISSING
+#   wifi iot/gst -> 192.168.69.10-11 tcp/udp 53 (Untrusted -> Untrusted, before 'Isolated Networks')   MISSING, Faris to decide
 flows: {}
