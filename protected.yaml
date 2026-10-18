@@ -1,9 +1,11 @@
 # Hard limits. Read by: Proxmox ACLs (NoAccess), Terraform module preconditions,
 # the PR classifier, the agents' tools, and lint/naming.py. Faris-only.
+# Protected guests are not in Terraform specs: their size is recorded here (live values, `pct config`, 2026-10-18).
+# Only the VMID keys are machine-read (lint, classifier, template builder, OpenClaw tools); the text is for people.
 vmids:
-  100: hm1-mgt-aiops01 (OpenClaw)
-  300: hm1-shr-cicd01 (DevOps plane)
-  303: hm1-shr-vault01 (OpenBao secrets store)
+  100: hm1-mgt-aiops01 (OpenClaw) [2 GB RAM, 4 vCPU]
+  300: hm1-shr-cicd01 (DevOps plane) [4 GB RAM, 4 vCPU]
+  303: hm1-shr-vault01 (OpenBao secrets store) [2 GB RAM, 2 vCPU]
 # Protected guests are never in a Proxmox pool: pool rights are added on top of guest rights and would bypass
 # the audit-only ACL for OpenClaw (incident 2026-10-05). Checked nightly by openclaw-nightly-scan.
 # Templates (VM clone sources, range below) are never managed by Terraform. The apply token is clone-only on each
