@@ -4,6 +4,12 @@ templates_linux: [9000, 9099]
 templates_windows: [9100, 9199]
 temporary: [9900, 9999]
 core_slots: "x00-x09 of each zone block: foundational / protected guests"
+# Hand-built guests inside a zone block: VMIDs reserved so propose_guest / Terraform never allocate them.
+# Documentation only; NOT Terraform guests (no spec in homelab-infra). WIP pending Faris's decision on the mgt
+# carve-out (management NIC attachment); this entry grants no network attachment.
+manual_reserved:
+  101: "Sophos SFOS 22 firewall VM (4 vCPU / 6 GB), hand-built by Faris, mgt block"
+  102: "Sophos SFOS 22 firewall VM (4 vCPU / 6 GB), hand-built by Faris, mgt block"
 # Template lifecycle (Faris decisions 1-7, 2026-10-15; standards PR #17).
 # Templates stay clone-only for the apply token (protected.yaml, decision 32 D5; homelab-infra scripts/template-guard.py
 # unchanged). They are built and refreshed only by the homelab-infra `template` workflow (runner host-template) with the
