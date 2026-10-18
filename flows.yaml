@@ -15,6 +15,12 @@
 #   iot clients -> iot DNS guests (192.168.74.10-11): DNS 53 tcp/udp (same L2, no firewall) | tru -> admin UI 80/443
 #   iot guests -> internet: DNS 53 / DoT 853 / HTTPS 443 | iot guests -> shr: PKI/OpenBao 8200
 #   iot guests -> mgt, net, int, dmz, stg, wifi: deny
+# tru guest zone (Faris 2026-10-18; gateway-routed like wifi and iot; PROPOSED, nothing implemented):
+#   shr (hm1-shr-cicd01 192.168.70.20) -> tru guests: SSH 22 (Ansible, pipeline tests) - tru and shr are both in UniFi
+#     zone 'Internal', so no new zone policy is expected; to be confirmed by the first apply's L2 test
+#   tru clients -> tru DNS guests (static band .10-.99): DNS 53 tcp/udp, admin UI 80/443 (same L2, no firewall)
+#   tru guests -> internet: DNS 53 / DoT 853 / HTTPS 443 | tru guests -> shr: PKI/OpenBao 8200 (intra-'Internal')
+#   tru guests -> mgt, net, dmz, stg, wifi, iot, gst: deny (open: Internal-zone isolation needs Faris design, Class C)
 # stg template-build host (Faris 2026-10-15, homelab-infra #53; reserved IP 192.168.76.250 in naming/zones.yaml;
 # seal/verify boots of scratch VMs 9990-9992; stg is routed by lox-coresw-01, internet egress via lox-gw-01):
 #   shr (hm1-shr-cicd01 192.168.70.20) -> internet: HTTPS 443 (vendor image mirrors; template runner download)
@@ -23,8 +29,9 @@
 #   template-build (192.168.76.250) -> 1.1.1.1, 8.8.8.8: DNS 53 tcp/udp (exception to stg -> shr DNS)
 #   template-build (192.168.76.250) -> mgt, net, shr, int, dmz, wifi, iot: deny (replies to CT 300 SSH only)
 # OpenClaw dashboard (Faris 2026-10-15, homelab/openclaw e417d97; read-only, no auth, shows no secrets or tool output):
-#   tru (Faris admin, 192.168.73.0/28) -> hm1-mgt-aiops01 (192.168.67.3): HTTP 9180/tcp
+#   tru (Faris admin, 192.168.73.0/25 since 2026-10-18; was /28) -> hm1-mgt-aiops01 (192.168.67.3): HTTP 9180/tcp
 #   no host firewall on CT 100: any zone that can route to mgt reaches it; other zones -> mgt stay deny per the matrix above
+#   note: tru now also hosts guests (hm1-tru-dns01/02), which therefore reach this dashboard too unless scoped to Faris's hosts
 #
 # UniFi implementation state of the gateway-routed guest flows (checked 2026-10-17 by oc-net, read-only).
 # UniFi zones: shr/int/dmz/stg/tru/mgt networks -> zone 'Internal'; wifi 192.168.69.0/24, iot 192.168.74.0/24,
