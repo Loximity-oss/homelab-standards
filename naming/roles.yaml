@@ -9,6 +9,7 @@ roles:
   pki: Internal certificate authority
   vault: Secrets store (OpenBao)
   jump: Jump / bastion host
+  fw: Firewall (guest appliance; hm1-mgt-fw01/02 = Sophos HA pair, transparent L2)
   guac: Guacamole gateway
   rp: Reverse proxy / ingress
   mon: Monitoring (Prometheus, Grafana)

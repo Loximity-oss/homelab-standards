@@ -4,6 +4,8 @@ vmids:
   100: hm1-mgt-aiops01 (OpenClaw)
   300: hm1-shr-cicd01 (DevOps plane)
   303: hm1-shr-vault01 (OpenBao secrets store)
+  101: hm1-mgt-fw01 (Sophos Firewall, transparent L2, HA pair)
+  102: hm1-mgt-fw02 (Sophos Firewall, transparent L2, HA pair)
 # Protected guests are never in a Proxmox pool: pool rights are added on top of guest rights and would bypass
 # the audit-only ACL for OpenClaw (incident 2026-10-05). Checked nightly by openclaw-nightly-scan.
 # Templates (VM clone sources, range below) are never managed by Terraform. The apply token is clone-only on each
@@ -11,5 +13,7 @@ vmids:
 # token before every apply (decision 32 D5). Linux templates (9000-9099) are built only by svc-tpl-build@pve!pipeline
 # from reviewed specs (standards #17, homelab-infra #53, template workflow); Windows (9100-9199) stays manual.
 templates: [9000, 9199]
-bridges: [vmbr0]
-subnets: [192.168.67.0/29]
+# vmbr10 = outside leg of the firewall pair (bond0 uplink, no guests); vmbr9 = Sophos HA link (no ports). A guest on
+# vmbr10 would bypass the firewalls, so both are protected like vmbr0 (NoAccess for the pipeline and OpenClaw).
+bridges: [vmbr0, vmbr9, vmbr10]
+subnets: [192.168.67.0/28]

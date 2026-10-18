@@ -9,12 +9,18 @@ zones:
   mgt:
     name: Management-InternalServices
     vlan: 2
-    cidr: 192.168.67.0/29
+    cidr: 192.168.67.0/28    # /29 -> /28 for the firewall pair (Faris 2026-10-18); widen in UniFi first
     gateway: 192.168.67.1
     bridge: vmbr0
     router: lox-coresw-01
     dhcp: none
-    guests: false        # PVE host and OpenClaw (CT 100) only. Hard limit.
+    guests: false        # Hand-built protected guests only (CT 100, VM 101/102), never pipeline guests. Hard limit.
+    reserved_ips:
+      192.168.67.2: hm1-mgt-pve01 (PVE host)
+      192.168.67.3: hm1-mgt-aiops01 (CT 100)
+      192.168.67.4: hm1-mgt-fw (Sophos HA cluster admin IP, follows the active unit)
+      192.168.67.5: hm1-mgt-fw01 (VM 101, HA peer administration)
+      192.168.67.6: hm1-mgt-fw02 (VM 102, HA peer administration)
     vmid: [100, 199]
     pool: pool-mgt
   dmz:
