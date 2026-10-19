@@ -1,4 +1,32 @@
 # Inter-zone flow matrix (decision 8 — OPEN). Owner: Network Engineer. Not enforced yet; no UniFi firewall changes in v7.
+#
+# Machine-readable part (schema v1, homelab-apps proposal 1.8; Class C). The comment matrix below stays the design
+# record; `flows:` (end of file) holds the flows that are planned or live, as a mapping keyed by flow id.
+# Readers: OpenClaw plan_from_catalog, the probe file_sd job (homelab-apps 4.3: targets in gateway-routed zones are
+# emitted only for flows with `state: implemented`), reviewers. Writer: oc-net only (owners.yaml).
+schema:
+  version: 1
+  id: '^[a-z0-9][a-z0-9-]*$'              # key of each entry under `flows:`
+  endpoints:                               # `from` / `to`: one value or a list of values
+    zone: a zone code from naming/zones.yaml (the whole zone cidr)
+    host: a named host (homelab-infra spec hostname, or a reserved_ips entry in naming/zones.yaml); resolves to its IP
+    internet: egress via the router of the source zone
+    self: homelab-apps catalog.flows only (the deployment's hosts); never used in this file
+    self-zone: homelab-apps catalog.flows only (other hosts in the same zone/L2, needs no rule); never used in this file
+  ports: '^(icmp|[0-9]{1,5}(-[0-9]{1,5})?/(tcp|udp))$'   # e.g. 53/udp, 22/tcp, 8000-8010/tcp, icmp
+  routers:                                 # `router` = where the flow is enforced (derived, stated for review)
+    lox-gw-01: either endpoint lies in a zone with router lox-gw-01, or `to` is internet -> UDM zone-firewall policy
+    lox-coresw-01: both endpoints in zones routed by lox-coresw-01 -> this entry only (no UDM policy)
+  states:
+    proposed: decided or requested, not (yet) confirmed in the network; consumers must not rely on it
+    implemented: confirmed by oc-net with a read-only UniFi check on the date in `checked`
+  entry:
+    required: [from, to, ports, router, state, why]
+    optional:
+      policies: UniFi firewall policy names (router lox-gw-01; required when implemented, proposed names otherwise)
+      checked: date of the last read-only UniFi check (required when implemented)
+      ref: issue/PR/decision reference
+#
 # Proposal from design-v7 §3 (row initiates to column):
 #   mgt -> shr, int, dmz, stg: allow
 #   shr -> mgt: deny (pull-only) | shr -> int, dmz: service ports | shr -> stg: allow
