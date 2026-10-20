@@ -60,7 +60,9 @@ schema:
 #   wifi+iot  shr 192.168.70.20 -> 192.168.69.10-11, 192.168.74.10-11 tcp/22   IMPLEMENTED
 #             one policy 'Allow SHRSVC to All DNS LXCs' (Internal -> Untrusted Networks; return auto-allowed);
 #             it replaced 'Allow SHRSVC to IoT DNS LXC' (2026-10-17 state) and closes the wifi gap of homelab-infra #86
-#   CT 100 192.168.67.3 -> wifi/iot DNS hosts: no policy yet (entry ct100-dns-probes below, proposed)
+#   wifi+iot  CT 100 192.168.67.3 -> 192.168.69.10-11, 192.168.74.10-11 udp/53, tcp/22,80, icmp   IMPLEMENTED
+#             three policies 'Allow AIOPS to DNS LXCs UDP 53 / TCP 22,80 / ICMP' (Internal -> Untrusted Networks;
+#             created by Faris 2026-10-20; entry ct100-dns-probes below)
 # Internal-network DNS (tru/int/dmz/stg -> wifi DNS 53, tru -> wifi DNS admin UI 80/443): design pending Faris
 # (2026-10-17). The 2026-10-09 lines above stay as recorded; nothing is planned or implemented for these until then.
 # iot/gst -> wifi DNS 53: undecided (Faris open question).
@@ -78,9 +80,10 @@ flows:
     to: [hm1-wifi-dns01, hm1-wifi-dns02, hm1-iot-dns01, hm1-iot-dns02]   # 192.168.69.10-11, 192.168.74.10-11
     ports: [53/udp, 22/tcp, 80/tcp, icmp]
     router: lox-gw-01              # Internal -> Untrusted Networks (predefined Block All)
-    state: proposed
-    policies:                      # proposed names; Faris creates them (Class C). Source zone Internal, IP 192.168.67.3;
-                                   # destination zone Untrusted Networks, the four IPs; action allow
+    state: implemented
+    checked: 2026-10-20
+    policies:                      # created by Faris 2026-10-20. Source zone Internal, IP 192.168.67.3;
+                                   # destination zone Untrusted Networks, the four IPs; action allow, enabled
       - Allow AIOPS to DNS LXCs TCP 22,80
       - Allow AIOPS to DNS LXCs UDP 53
       - Allow AIOPS to DNS LXCs ICMP
