@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Naming / hard-limit checker for homelab-infra. Owned by homelab-standards (Faris-only).
+"""Naming / hard-limit checker for homelab-infra and homelab-apps. Owned by homelab-standards (changes are Class C).
 
-Usage: naming.py --infra PATH [--branch NAME] [--title TITLE] [--standards PATH]
+Usage: naming.py [--repo infra] --infra PATH [--branch NAME] [--title TITLE] [--standards PATH]
+       naming.py --repo apps --apps PATH [--branch NAME] [--title TITLE] [--standards PATH]
 Exit 0 = clean, 1 = violations (printed one per line as `path: message`).
 """
 import argparse, ipaddress, pathlib, re, sys
 import yaml
 
+REPOS = ("infra", "apps")
 REQUIRED = {"hostname", "vmid", "type", "role", "os", "ip", "owner", "patch"}
 SIZING = {"cores", "memory_mb", "disk_gb"}          # required for lxc; optional for vm (baseline 2/2048/16, decision 32 D6)
 OPTIONAL = SIZING | {"datastore", "description", "swap_mb", "nesting", "env", "keyctl"}
@@ -21,6 +23,13 @@ def os_family(os_code):  # tests/os/<family>.* in homelab-infra (decision 32: no
 BRANCH_RE = re.compile(r"^(feat|fix|chore|patch|app|net|learn|docs)/([0-9]+-)?[a-z0-9][a-z0-9-]*$")
 TITLE_RE = re.compile(r"^(WIP:? )?(feat|fix|chore|patch|app|net|learn|docs)(\([a-z0-9-]+\))?!?: \S")
 SECRET_REF_RE = re.compile(r"""\bsecret/(?:data/)?([a-z0-9][a-z0-9/_-]*[a-z0-9])""")
+
+# homelab-apps (naming-conventions.md 8.6)
+APP_NAME_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
+APP_NAME_MAX = 30
+APP_EXAMPLES = {"_example"}                        # status `example`: catalogue only, never deployed
+APP_PLACEHOLDERS = {".gitkeep"}                    # keeps empty folders (e.g. deployments/stg/) in Git
+APPS_TITLE_RE = re.compile(r"^(WIP:? )?(feat|fix|chore|patch|app|net|learn|docs)(\((?:_example|[a-z0-9-]+)\))?!?: \S")
 
 
 def load(p):
@@ -45,18 +54,19 @@ def parse_hostname(h, zones_doc, roles_doc):
     return True, "", m.groupdict()
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--infra", required=True)
-    ap.add_argument("--standards", default=str(pathlib.Path(__file__).resolve().parents[1]))
-    ap.add_argument("--branch")
-    ap.add_argument("--title")
-    a = ap.parse_args()
-    S, I = pathlib.Path(a.standards), pathlib.Path(a.infra)
+def app_name_problem(name, allow_example=True):
+    """The catalogue entry name rule (homelab-apps). Returns '' when valid, else the reason."""
+    if allow_example and name in APP_EXAMPLES:
+        return ""
+    if len(name) > APP_NAME_MAX:
+        return f"app name '{name}' is {len(name)} chars (max {APP_NAME_MAX})"
+    if not APP_NAME_RE.match(name):
+        return f"app name '{name}' must be lowercase a-z 0-9, words joined by single '-', starting with a letter"
+    return ""
 
-    zones_doc = load(S / "naming/zones.yaml")
+
+def lint_infra(a, S, I, zones_doc, roles, err):
     site, zones = zones_doc["site"], zones_doc["zones"]
-    roles = load(S / "naming/roles.yaml")
     role_codes = set(roles["roles"]) - set(roles.get("network_device_roles", []))
     tags = load(S / "naming/tags.yaml")["keys"]
     prot = load(S / "protected.yaml")
@@ -64,10 +74,6 @@ def main():
     prot_bridges = set(prot.get("bridges", []))
     tpl_lo, tpl_hi = prot.get("templates", [9000, 9199])
     prot_nets = [ipaddress.ip_network(n) for n in prot.get("subnets", [])]
-
-    errs = []
-    def err(path, msg):
-        errs.append(f"{path}: {msg}")
 
     # v7.1: every guest zone needs an OpenBao namespace (one-time guest secrets) and a PKI role (ACME)
     ob = S / "openbao"
@@ -177,12 +183,105 @@ def main():
                 err(rel, f"duplicate {key} '{v}' (also in {seen[key][v]})")
             seen[key][v] = rel
 
+
+def lint_apps(A, zones_doc, roles, err):
+    """homelab-apps: catalogue entry folder = entry name, deployment path = deployments/<zone>/<app>.yaml.
+    Everything beyond naming (specs, pattern counts, waves, pins, secret path shape) is apps scripts/catalog.py."""
+    zones = zones_doc["zones"]
+    role_codes = set(roles["roles"]) - set(roles.get("network_device_roles", []))
+
+    entries = set()
+    cat = A / "catalog"
+    if cat.is_dir():
+        for d in sorted(cat.iterdir()):
+            rel = d.relative_to(A)
+            if d.name in APP_PLACEHOLDERS:
+                continue
+            if d.is_symlink() or not d.is_dir():
+                err(rel, "catalog/ holds only entry folders catalog/<app>/ (no files, no symlinks)"); continue
+            why = app_name_problem(d.name)
+            if why:
+                err(rel, why)
+            entries.add(d.name)
+            f = d / "app.yaml"
+            frel = f.relative_to(A)
+            if f.is_symlink() or not f.is_file():
+                err(rel, "entry has no app.yaml (catalog/<app>/app.yaml)"); continue
+            try:
+                e = load(f)
+            except Exception as x:
+                err(frel, f"invalid YAML: {x}"); continue
+            if not isinstance(e, dict):
+                err(frel, "app.yaml must be a mapping"); continue
+            if e.get("name") != d.name:
+                err(frel, f"name '{e.get('name')}' must equal the entry folder '{d.name}'")
+            c = e.get("catalog")
+            r = c.get("role") if isinstance(c, dict) else None
+            if r is None:
+                continue
+            codes = [r] if isinstance(r, str) else r if isinstance(r, list) else None
+            if codes is None:
+                err(frel, "catalog.role must be a role code or a list of role codes"); continue
+            for code in codes:
+                if code not in role_codes:
+                    err(frel, f"catalog.role '{code}' not in naming/roles.yaml (owner: oc-infra; open a standards PR)")
+
+    dep = A / "deployments"
+    if dep.is_dir():
+        for zd in sorted(dep.iterdir()):
+            rel = zd.relative_to(A)
+            if zd.name in APP_PLACEHOLDERS:
+                continue
+            if zd.is_symlink() or not zd.is_dir():
+                err(rel, "deployments/ holds only zone folders: deployments/<zone>/<app>.yaml"); continue
+            zone = zd.name
+            zv = zones.get(zone)
+            if not zv:
+                err(rel, f"'{zone}' is not a zone code in naming/zones.yaml {sorted(zones)}")
+            elif not zv.get("guests"):
+                err(rel, f"zone '{zone}' does not take guests (naming/zones.yaml)")
+            for f in sorted(zd.iterdir()):
+                frel = f.relative_to(A)
+                if f.name in APP_PLACEHOLDERS:
+                    continue
+                if f.is_symlink() or not f.is_file() or f.suffix != ".yaml":
+                    err(frel, "must be deployments/<zone>/<app>.yaml (a regular file with suffix .yaml)"); continue
+                app = f.stem
+                why = app_name_problem(app, allow_example=False)
+                if why:
+                    err(frel, why)
+                elif app not in entries:
+                    err(frel, f"no catalogue entry catalog/{app}/ for this deployment")
+                try:
+                    d = load(f)
+                except Exception as x:
+                    err(frel, f"invalid YAML: {x}"); continue
+                if not isinstance(d, dict):
+                    err(frel, "deployment must be a mapping"); continue
+                if d.get("app") != app:
+                    err(frel, f"app '{d.get('app')}' must equal the file name '{app}'")
+                if d.get("zone") != zone:
+                    err(frel, f"zone '{d.get('zone')}' must equal the folder '{zone}'")
+                hosts = d.get("hosts")
+                if hosts is None:
+                    continue
+                if not isinstance(hosts, list):
+                    err(frel, "hosts must be a list of hostnames"); continue
+                for h in hosts:
+                    ok, why, m = parse_hostname(str(h), zones_doc, roles)
+                    if not ok:
+                        err(frel, why)
+                    elif m["zone"] != zone:
+                        err(frel, f"host '{h}' is in zone '{m['zone']}', not '{zone}'")
+
+
+def lint_secrets(S, R, err):
     sec = load(S / "naming/secrets.yaml") if (S / "naming/secrets.yaml").exists() else None
-    if (I / "secrets").exists() or list(I.rglob("*.sops.yaml")):
+    if (R / "secrets").exists() or list(R.rglob("*.sops.yaml")):
         err("secrets", "no secrets in Git: secrets live in OpenBao (naming/secrets.yaml)")
     if sec:
         path_re = re.compile(sec["path_pattern"])
-        for f in I.rglob("*"):
+        for f in R.rglob("*"):
             if not f.is_file() or ".git" in f.parts or f.suffix not in {".yml", ".yaml", ".j2", ".tf", ".hcl", ".tpl", ".sh", ".py", ".md"}:
                 continue
             try:
@@ -192,12 +291,44 @@ def main():
             for m in SECRET_REF_RE.finditer(txt):
                 ref = m.group(1)
                 if ref.startswith(("hm1/", "inbox/")) and not path_re.match(ref):
-                    err(f.relative_to(I), f"OpenBao path 'secret/{ref}' does not match naming/secrets.yaml path_pattern")
+                    err(f.relative_to(R), f"OpenBao path 'secret/{ref}' does not match naming/secrets.yaml path_pattern")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--repo", choices=REPOS, default="infra")
+    ap.add_argument("--infra")
+    ap.add_argument("--apps")
+    ap.add_argument("--standards", default=str(pathlib.Path(__file__).resolve().parents[1]))
+    ap.add_argument("--branch")
+    ap.add_argument("--title")
+    a = ap.parse_args()
+    if a.repo == "infra" and not a.infra:
+        ap.error("--infra PATH is required with --repo infra")
+    if a.repo == "apps" and not a.apps:
+        ap.error("--apps PATH is required with --repo apps")
+    S = pathlib.Path(a.standards)
+    R = pathlib.Path(a.infra if a.repo == "infra" else a.apps)
+
+    zones_doc = load(S / "naming/zones.yaml")
+    roles = load(S / "naming/roles.yaml")
+
+    errs = []
+    def err(path, msg):
+        errs.append(f"{path}: {msg}")
+
+    if a.repo == "infra":
+        lint_infra(a, S, R, zones_doc, roles, err)
+        title_re, title_eg = TITLE_RE, "'feat(shr): add dns01'"
+    else:
+        lint_apps(R, zones_doc, roles, err)
+        title_re, title_eg = APPS_TITLE_RE, "'app(adguard): bump to v0.107.80'"
+    lint_secrets(S, R, err)
 
     if a.branch and not BRANCH_RE.match(a.branch):
         err("branch", f"'{a.branch}' must be <type>/<issue#>-<slug>, type in feat|fix|chore|patch|app|net|learn|docs")
-    if a.title and not TITLE_RE.match(a.title):
-        err("title", f"'{a.title}' must be a Conventional Commit, e.g. 'feat(shr): add dns01' (prefix 'WIP: ' to hold)")
+    if a.title and not title_re.match(a.title):
+        err("title", f"'{a.title}' must be a Conventional Commit, e.g. {title_eg} (prefix 'WIP: ' to hold)")
 
     for e in errs:
         print(e)

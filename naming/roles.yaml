@@ -27,3 +27,10 @@ roles:
   asw: Access switch (network device)
   ap: Access point (network device)
 network_device_roles: [gw, csw, asw, ap]
+# Role code -> homelab-apps catalogue entry (catalog/<app>/) that implements it.
+# Kept separate from `roles:` so readers of the flat code -> description map are unaffected.
+# A role without an entry here has no catalogue app (yet).
+role_apps:
+  dns: adguard
+  k3sc: k3s
+  k3sw: k3s

@@ -74,10 +74,12 @@ Engineers don't edit conventions. Each is the **steward** of its area: it knows 
 | 8.3 | Ansible app roles, app config | Application Engineer |
 | 8.4 | Git (branches, commits, labels, tags) | Infrastructure Engineer |
 | 8.5 | Secrets (OpenBao paths, keys, AppRoles) | Infrastructure Engineer (policies: Faris) |
+| 8.6 | homelab-apps catalogue and deployments | Configuration Engineer (lint: Infrastructure Engineer) |
 | 9.1 | Alerts, runbooks, dashboards | SRE |
 | 9.2 | Snapshots, backups | SRE |
 | 9.3 | Patch artefacts | Systems Engineer |
 | 9.4 | Learning artefacts | Tutor |
+| 9.5 | Issue titles | PM (pipeline titles: Infrastructure Engineer) |
 
 The Reviewer checks that PRs follow the conventions beyond what the linter can catch, e.g. a role code that is valid but the wrong one.
 
@@ -334,11 +336,12 @@ Shared admin accounts (`root` login, `devops-admin`) are break-glass only and li
 - App config in `apps/<name>/` (rendered config, compose files, Helm values).
 - Containers / compose projects / k8s namespaces: `<name>` (lowercase, no env suffix: the zone gives the environment). k8s labels follow `app.kubernetes.io/name`.
 - Service DNS names per §4, registered in `naming/services.yaml`.
+- **Migration:** apps move to `homelab-apps` (§8.6, infra `docs/proposals/homelab-apps/`). After the cutover (step 10) no new app roles or `apps/<name>/` folders are added to `homelab-infra`.
 
 ### 8.4 Git (Infrastructure Engineer)
-- Repos: `<org>/<scope>-<purpose>` (`homelab/homelab-infra`; new repos only per the repo strategy in `architecture-devops.md` §12).
-- Branches: `<type>/<issue#>-<slug>`. Types: `feat`, `fix`, `chore`, `patch`, `app`, `net`, `learn`, `docs`. Example `feat/42-shr-dns-pair`.
-- Commits: Conventional Commits with zone scope: `feat(shr): add dns01/dns02`.
+- Repos: `<org>/<scope>-<purpose>` (`homelab/homelab-infra`, `homelab/homelab-standards`, `homelab/homelab-apps`; new repos only per the repo strategy in `architecture-devops.md` §12).
+- Branches: `<type>/<issue#>-<slug>`. Types: `feat`, `fix`, `chore`, `patch`, `app`, `net`, `learn`, `docs`. Example `feat/42-shr-dns-pair`. Same rule in every repo.
+- Commits: Conventional Commits with zone scope: `feat(shr): add dns01/dns02`. In `homelab-apps` the scope is the catalogue entry name (§8.6): `app(adguard): bump to v0.107.80`.
 - Labels: `class/a`, `class/b`, `class/c` (classifier), `wip`, `agent/<agent>`, `sev/1`–`sev/4`, `learn`.
 - Release tags: `vYYYY.MM.DD[.n]`.
 
@@ -348,6 +351,25 @@ Secrets live only in **OpenBao** (CT 303). Machine-readable rules: `naming/secre
 - Keys: lowercase `snake_case` (`gitea_token_oc_infra`, `pve_token_plan`, `pg_conn`).
 - AppRoles: `<system>-<purpose>` (`ci-plan`, `ci-apply`, `aiops`); AppRole name = policy name; each bound to its client IP.
 - Never in Git: no `secrets/` directory, no `*.sops.yaml`, no plain tokens (the PR lint and gitleaks enforce it).
+
+### 8.6 homelab-apps: catalogue and deployments (Configuration Engineer)
+
+One catalogue entry per app (what it is), one deployment per zone it runs in (where it runs). Layout and fields: infra `docs/proposals/homelab-apps/1-boundary-catalogue.md` and the apps `README.md`.
+
+| Thing | Pattern | Example | Rule |
+|---|---|---|---|
+| Entry name | `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`, ≤ 30 chars | `adguard`, `k3s`, `uptime-kuma` | The **product** name (unlike role codes, §2.3), lowercase, no version, zone or env. The only exception is `_example` (status `example`, never deployed) |
+| Entry folder | `catalog/<name>/` | `catalog/adguard/` | Folder = `name:` in `catalog/<name>/app.yaml` |
+| Entry contents | `app.yaml`, `role/`, `files/`, `tests/l4.goss.yaml.j2`, `docs/design.md`, `docs/runbook.md` | | Files are referenced as `{{ role_path }}/../files/...` |
+| Role code(s) | `catalog.role` | `dns`; `[k3sc, k3sw]` | From `naming/roles.yaml` (no network-device roles); hosts of the deployment carry that role in their hostname |
+| Role variables | `app_<name>_*` (`-` → `_`); platform services keep `svc_<name>_*` | `app_adguard_version`, `svc_k3s_version` | Role-prefixed `snake_case` as in §8.2 |
+| Deployment | `deployments/<zone>/<name>.yaml` | `deployments/wifi/adguard.yaml` | `<zone>` is a zone with `guests: true`; `app:` = file name, `zone:` = folder; every host in `hosts:` is a hostname of that zone (§2) |
+| Generated inventory group | `deployment_<zone>_<name>` (`-` → `_`) | `deployment_wifi_adguard` | Built by `playbooks/deploy.yml`; never written by hand |
+| Environments | keys of `environments.yaml` = zone codes | `stg`, `shr`, `wifi` | What a zone means for apps; network facts stay in `naming/zones.yaml` |
+| App secrets | `<zone>/secret/apps/<name>[/<host>]` | `wifi/secret/apps/adguard/hm1-wifi-dns01` | Paths unchanged by the migration (§8.5 rules for keys) |
+| Version pins | upstream tag as published | `v0.107.79`, `v1.36.5+k3s1` | `version.known` keys match the release asset name |
+
+One entry per app, not per zone or version: `adguard-wifi`, `adguard2` or `k3s-prod` are wrong (the deployment carries the zone, `version.pin` the version).
 
 ---
 
@@ -360,14 +382,43 @@ Secrets live only in **OpenBao** (CT 303). Machine-readable rules: `naming/secre
 - Dashboards: `<Scope> / <Subject>` (`Platform / Proxmox host`, `Zone / SHR`).
 
 ### 9.2 Snapshots and backups (SRE)
-- Snapshot names (Proxmox: start with a letter, `A-Za-z0-9_-`, ≤ 40 chars): `<reason>_<yyyymmdd>_<hhmm>`. Reasons: `pre-patch`, `pre-change`, `pre-upgrade`, `manual`, `drill`. Example `pre-patch_20261025_0200`. Snapshots older than 7 days without `manual` are flagged.
+- Snapshot names (Proxmox: start with a letter, `A-Za-z0-9_-`, ≤ 40 chars): `<reason>_<yyyymmdd>_<hhmm>`. Example `pre-patch_20261025_0200`.
+
+| Reason | Taken by | Kept / pruned |
+|---|---|---|
+| `pre-apply` | infra apply | 7 days, pruned by the 03:00 verify (`snapshot.py prune`) |
+| `pre-patch` | OS patching | 7 days, same job |
+| `pre-deploy` | homelab-apps deploy (`svc-apps@pve`; may create and delete only this prefix) | 7 days, same job |
+| `pre-reboot` | infra `reboot` workflow | 7 days, same job |
+| `pre-cutover` | SRE, homelab-apps cutover (step 10) | never pruned automatically; the SRE removes them after a green night |
+| `pre-change`, `pre-upgrade` | SRE | until removed by the SRE |
+| `manual`, `drill` | SRE / Faris | until removed |
+
+- Snapshots older than 7 days without `manual` or `pre-cutover` are flagged.
 - Backup notes template: `{{guestname}} {{vmid}} zone={{zone}}`. Backup jobs: `bkp-<zone>-<schedule>` (`bkp-shr-daily`).
 
 ### 9.3 Patch artefacts (Systems Engineer)
-PR titles `patch(<ring>): Sev<n> <yyyy-mm-dd>`; monthly bundle branch `patch/<yyyy-mm>-bundle`; approval issues `reboot: <hostname> <yyyy-mm-dd>`.
+PR titles `patch(<ring>): Sev<n> <yyyy-mm-dd>`; monthly bundle branch `patch/<yyyy-mm>-bundle`; reboot approval issues `patch: reboot <hostname>` (§9.5).
 
 ### 9.4 Learning artefacts (Tutor)
 `docs/learn/<yyyy-mm-dd>-<slug>.md`, issues labelled `learn`, drills `drill-<topic>` with VMIDs 850–899.
+
+### 9.5 Issue titles (pipeline and team)
+
+Issue titles are machine-read (the poller, `app_status`, upserts by title), so they follow fixed patterns: a lowercase prefix ending in `:`, then the subject. One open issue per title; a repeated failure comments on (upserts) the open issue instead of opening a new one.
+
+| Title | Repo | Opened by | Meaning |
+|---|---|---|---|
+| `verify: <hostname>` | infra | nightly / on-demand verify | L1–L3 failure of a guest |
+| `verify: platform` | infra | verify | platform check failure |
+| `patch: reboot <hostname>` | infra | patching | reboot waiting for Faris (`reboot` / `defer`) |
+| `pipeline: <what>` | infra | pipeline | pipeline fault, e.g. `pipeline: apps dispatch failed`, `pipeline: apps clone failed`, `pipeline: lock wait timeout <hostname>` |
+| `app-verify: <app>/<hostname>` | apps | apps deploy / L4 / drift / wave stop, reboot workflow | an app on one host is failing, e.g. `app-verify: adguard/hm1-wifi-dns02` |
+| `app update: <app> <version>` | apps | weekly version check (Mon 04:30) | new upstream release (with sha256), or pins past `pin_until`, e.g. `app update: adguard v0.107.80` |
+| `build: <app> <zone>` | apps | PM (`plan_from_catalog`) | tracking issue for building an app in a zone, with the PR checklist, e.g. `build: uptime-kuma int` |
+| `remove: <app> <zone>` | apps | PM (`plan_from_catalog`, mode `remove`) | tracking issue for removing an app from a zone (deployment first, then guests) |
+
+`<app>` is the catalogue entry name (§8.6), `<zone>` a zone code, `<version>` the upstream tag.
 
 ---
 
@@ -395,6 +446,17 @@ Learning tip: editing the YAML yourself is a quick way to see the gate react. Ad
 | Secrets | no secrets in Git; OpenBao path references match `naming/secrets.yaml` (§8.5) |
 | Snapshots | name regex (§9.2) for snapshots created by tools |
 | Git | branch regex and Conventional Commit title |
+
+**homelab-apps** (`naming.py --repo apps --apps PATH`, run in the apps `pr` gate; §8.6):
+
+| Check | Rule |
+|---|---|
+| Entry | `catalog/` holds only entry folders (no symlinks); folder name valid (§8.6) or `_example`; `app.yaml` exists and `name` = folder; `catalog.role` codes ∈ `roles.yaml` |
+| Deployment | path `deployments/<zone>/<app>.yaml`; `<zone>` has `guests: true`; `<app>` is an existing entry (never `_example`); `app` = file name, `zone` = folder; every host passes the hostname rule and is in that zone |
+| Secrets | as for infra |
+| Git | same branch regex; Conventional Commit title, scope may be an entry name (`app(adguard): …`) |
+
+Everything else about deployments (host in specs, pattern counts, waves, pins, status per environment, secret path shape, banned variable keys) is checked by the apps `scripts/catalog.py check`, not here.
 
 Agents get the same rules as a short skill (`naming`) so they produce valid names first time instead of discovering them in CI. That keeps token use down too.
 
