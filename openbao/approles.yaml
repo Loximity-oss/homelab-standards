@@ -8,8 +8,8 @@ approles:
   ci-apps:  {policies: [ci-apps],  cidrs: [192.168.70.20/32], client: "CT 300 runner host-apps (user runner-apps); homelab-apps"}
 # Token roles for per-app child tokens (homelab-apps 5b): minted by ci-apps per app play, create-only on that app.
 # No bound_cidrs (bao_create_secret runs on CT 300 with the child token); TTL per wave; not renewable.
-token_roles:
-  apps-adguard: {allowed_policies: [ci-apps-adguard], token_ttl: 30m, token_max_ttl: 30m, renewable: false}
-  apps-k3s:     {allowed_policies: [ci-apps-k3s],     token_ttl: 60m, token_max_ttl: 60m, renewable: false}
+token_roles:   # apply.sh writes token_max_ttl as token_explicit_max_ttl (the only TTL a token role honours)
+  apps-adguard: {allowed_policies: [ci-apps-adguard], token_max_ttl: 30m, renewable: false}
+  apps-k3s:     {allowed_policies: [ci-apps-k3s],     token_max_ttl: 60m, renewable: false}
 userpass:
   faris: {policies: [admin], token_ttl: 8h}

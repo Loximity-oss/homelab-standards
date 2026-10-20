@@ -35,8 +35,10 @@ for name, r in c["approles"].items():
     if not dry:
         subprocess.run(["bao", "write", f"auth/approle/role/{name}", *args], check=True, stdout=subprocess.DEVNULL)
 for name, r in (c.get("token_roles") or {}).items():   # per-app child-token roles (homelab-apps)
-    args = [f"allowed_policies={','.join(r['allowed_policies'])}", f"token_ttl={r['token_ttl']}",
-            f"token_max_ttl={r['token_max_ttl']}", f"renewable={str(r['renewable']).lower()}", "orphan=false"]
+    # token roles take no token_ttl/token_max_ttl (silently ignored -> 32-day children, found by the step-4 test);
+    # the hard cap is token_explicit_max_ttl. approles.yaml keeps one value per role: token_max_ttl.
+    args = [f"allowed_policies={','.join(r['allowed_policies'])}", f"token_explicit_max_ttl={r['token_max_ttl']}",
+            f"renewable={str(r['renewable']).lower()}", "orphan=false"]
     print(f"token role {name}: {'would write' if dry else 'write'} {' '.join(args)}")
     if not dry:
         subprocess.run(["bao", "write", f"auth/token/roles/{name}", *args], check=True, stdout=subprocess.DEVNULL)
