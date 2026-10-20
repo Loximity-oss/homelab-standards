@@ -238,7 +238,7 @@ Mapping of current names: `devops.loximity.dev` (mentioned in the network doc) b
 
 | Block | Zone | Core `x00–x09` | Workloads `x10–x99` |
 |---|---|---|---|
-| 100–199 | `mgt` (VLAN 2) | `100` OpenClaw `hm1-mgt-aiops01` | None: the management /29 has room only for the PVE host and OpenClaw. The block exists so the mapping is uniform |
+| 100–199 | `mgt` (VLAN 2) | `100` OpenClaw `hm1-mgt-aiops01` | None: the management /28 holds only the PVE host, OpenClaw and networking gear (no guests). The block exists so the mapping is uniform |
 | 200–299 | `dmz` (VLAN 10) | Reverse proxy / jump / gateway services | Internet-facing apps (`hm1-dmz-guac01`, `hm1-dmz-jump01`) |
 | 300–399 | `shr` (VLAN 20) | `300` DevOps plane `hm1-shr-cicd01` · `301`/`302` DNS `hm1-shr-dns01/02` · `303` OpenBao `hm1-shr-vault01` (protected, 192.168.70.12) · future DCs, IdP, PBS | Shared services (monitoring, logging, databases) |
 | 400–499 | `int` (VLAN 40) | Cluster control planes | Cluster workers, internal apps |
