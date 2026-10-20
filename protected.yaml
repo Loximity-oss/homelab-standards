@@ -14,4 +14,4 @@ vmids:
 # from reviewed specs (standards #17, homelab-infra #53, template workflow); Windows (9100-9199) stays manual.
 templates: [9000, 9199]
 bridges: [vmbr0]
-subnets: [192.168.67.0/29]
+subnets: [192.168.67.0/28]   # whole mgt zone (UniFi /28, standards #31); /28 since 2026-10-20 for more networking gear (Faris)

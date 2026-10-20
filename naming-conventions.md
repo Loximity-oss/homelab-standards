@@ -156,7 +156,7 @@ Source of truth: `homelab-standards/naming/zones.yaml`, owned by the **Network E
 
 | Zone code | UniFi network | VLAN | Subnet | Router (L3) | DHCP | Guests / notes |
 |---|---|---|---|---|---|---|
-| `mgt` | Management-InternalServices | 2 | 192.168.67.0/29 | `lox-coresw-01` | none | PVE host and OpenClaw only (`vmbr0`). **Hard limit: no guest attaches here** |
+| `mgt` | Management-InternalServices | 2 | 192.168.67.0/28 | `lox-coresw-01` | none | PVE host and OpenClaw only (`vmbr0`). **Hard limit: no guest attaches here** |
 | `dmz` | DMZ | 10 | 192.168.71.0/24 | `lox-coresw-01` | Server | Guests — internet-facing / untrusted |
 | `shr` | Shared Services | 20 | 192.168.70.0/24 | `lox-coresw-01` | Server | Guests — DNS, DevOps plane, vault, IdP, monitoring |
 | `int` | Internal | 40 | 192.168.72.0/24 | `lox-coresw-01` | Server | Guests — clusters and internal workloads |
@@ -182,8 +182,8 @@ A zone hosts guests only if it is trunked on `vmbr1` and routed by the core swit
 | `.200`–`.239` | Load-balancer / service VIPs (e.g. MetalLB, keepalived) | Terraform/Ansible |
 | `.240`–`.254` | Reserved (temporary, migrations) | Network Engineer |
 
-The /29 networks don't use these bands:
-- `mgt` 192.168.67.0/29: `.1` gateway, `.2` PVE host, `.3` OpenClaw, `.4`–`.6` spare. Nothing else ever.
+The small networks don't use these bands:
+- `mgt` 192.168.67.0/28 (protected subnet, `protected.yaml`): `.1` gateway, `.2` PVE host, `.3` OpenClaw, `.4`–`.14` networking gear and spare. No guest ever.
 - `tru` 192.168.73.0/29: `.1` gateway, `.2`–`.6` DHCP for trusted endpoints. No servers.
 
 `wifi` 192.168.69.0/24: `.1` gateway (`lox-gw-01`), `.2`–`.9` network-infra reserved, `.10`–`.99` static guests (Terraform), `.100`–`.254` DHCP for wireless clients (UniFi). No VIP band: `.200`–`.239` lies inside the DHCP pool.
@@ -238,7 +238,7 @@ Mapping of current names: `devops.loximity.dev` (mentioned in the network doc) b
 
 | Block | Zone | Core `x00–x09` | Workloads `x10–x99` |
 |---|---|---|---|
-| 100–199 | `mgt` (VLAN 2) | `100` OpenClaw `hm1-mgt-aiops01` | None: the management /29 has room only for the PVE host and OpenClaw. The block exists so the mapping is uniform |
+| 100–199 | `mgt` (VLAN 2) | `100` OpenClaw `hm1-mgt-aiops01` | None: the management /28 holds only the PVE host, OpenClaw and networking gear (no guests). The block exists so the mapping is uniform |
 | 200–299 | `dmz` (VLAN 10) | Reverse proxy / jump / gateway services | Internet-facing apps (`hm1-dmz-guac01`, `hm1-dmz-jump01`) |
 | 300–399 | `shr` (VLAN 20) | `300` DevOps plane `hm1-shr-cicd01` · `301`/`302` DNS `hm1-shr-dns01/02` · `303` OpenBao `hm1-shr-vault01` (protected, 192.168.70.12) · future DCs, IdP, PBS | Shared services (monitoring, logging, databases) |
 | 400–499 | `int` (VLAN 40) | Cluster control planes | Cluster workers, internal apps |
