@@ -54,12 +54,35 @@ schema:
 #   tru (Faris admin, 192.168.73.0/28) -> hm1-mgt-aiops01 (192.168.67.3): HTTP 9180/tcp
 #   no host firewall on CT 100: any zone that can route to mgt reaches it; other zones -> mgt stay deny per the matrix above
 #
-# UniFi implementation state of the gateway-routed guest flows (checked 2026-10-17 by oc-net, read-only).
+# UniFi implementation state of the gateway-routed guest flows (checked 2026-10-20 by oc-net, read-only).
 # UniFi zones: shr/int/dmz/stg/tru/mgt networks -> zone 'Internal'; wifi 192.168.69.0/24, iot 192.168.74.0/24,
 # gst 192.168.75.0/24 -> zone 'Untrusted Networks'. Internal -> Untrusted Networks is predefined 'Block All Traffic'.
-#   iot  shr 192.168.70.20 -> 192.168.74.10-11 tcp/22   IMPLEMENTED  'Allow SHRSVC to IoT DNS LXC' (return auto-allowed)
-#   wifi shr 192.168.70.20 -> 192.168.69.10-11 tcp/22   MISSING      blocks hm1-wifi-dns01/02 (homelab-infra #86: L2 ssh timeout)
+#   wifi+iot  shr 192.168.70.20 -> 192.168.69.10-11, 192.168.74.10-11 tcp/22   IMPLEMENTED
+#             one policy 'Allow SHRSVC to All DNS LXCs' (Internal -> Untrusted Networks; return auto-allowed);
+#             it replaced 'Allow SHRSVC to IoT DNS LXC' (2026-10-17 state) and closes the wifi gap of homelab-infra #86
+#   CT 100 192.168.67.3 -> wifi/iot DNS hosts: no policy yet (entry ct100-dns-probes below, proposed)
 # Internal-network DNS (tru/int/dmz/stg -> wifi DNS 53, tru -> wifi DNS admin UI 80/443): design pending Faris
 # (2026-10-17). The 2026-10-09 lines above stay as recorded; nothing is planned or implemented for these until then.
 # iot/gst -> wifi DNS 53: undecided (Faris open question).
-flows: {}
+flows:
+  ct100-k3s-api:
+    from: hm1-mgt-aiops01          # CT 100, 192.168.67.3 (mgt reserved_ips, standards #31)
+    to: shr                        # k3s API VIP 192.168.70.200 (svc_k3s_api_vip; not a named host)
+    ports: [6443/tcp]
+    router: lox-coresw-01          # mgt and shr both routed by the core switch: no UDM policy
+    state: proposed
+    why: blackbox probe https://<vip>:6443/readyz (K3sAPIDown), homelab-apps 4.3; mgt -> shr is allow in the matrix
+    ref: homelab-infra #127; homelab-apps proposal 4-verification.md 4.3
+  ct100-dns-probes:
+    from: hm1-mgt-aiops01          # CT 100, 192.168.67.3 only (not the whole mgt zone)
+    to: [hm1-wifi-dns01, hm1-wifi-dns02, hm1-iot-dns01, hm1-iot-dns02]   # 192.168.69.10-11, 192.168.74.10-11
+    ports: [53/udp, 22/tcp, 80/tcp, icmp]
+    router: lox-gw-01              # Internal -> Untrusted Networks (predefined Block All)
+    state: proposed
+    policies:                      # proposed names; Faris creates them (Class C). Source zone Internal, IP 192.168.67.3;
+                                   # destination zone Untrusted Networks, the four IPs; action allow
+      - Allow AIOPS to DNS LXCs TCP 22,80
+      - Allow AIOPS to DNS LXCs UDP 53
+      - Allow AIOPS to DNS LXCs ICMP
+    why: blackbox probes from CT 100 (icmp + ssh per guest; AdGuard dns_udp :53 and http_2xx :80), homelab-apps 4.3
+    ref: homelab-infra #127; homelab-apps proposal 4-verification.md 4.3 (net R3)
