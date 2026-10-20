@@ -184,7 +184,7 @@ A zone hosts guests only if it is trunked on `vmbr1` and routed by the core swit
 
 The small networks don't use these bands:
 - `mgt` 192.168.67.0/28 (protected subnet, `protected.yaml`): `.1` gateway, `.2` PVE host, `.3` OpenClaw, `.4`–`.14` networking gear and spare. No guest ever.
-- `tru` 192.168.73.0/29: `.1` gateway, `.2`–`.6` DHCP for trusted endpoints. No servers.
+- `tru` 192.168.73.0/28: `.1` gateway, the rest DHCP for trusted endpoints (UniFi pool). No servers.
 
 `wifi` 192.168.69.0/24: `.1` gateway (`lox-gw-01`), `.2`–`.9` network-infra reserved, `.10`–`.99` static guests (Terraform), `.100`–`.254` DHCP for wireless clients (UniFi). No VIP band: `.200`–`.239` lies inside the DHCP pool.
 
