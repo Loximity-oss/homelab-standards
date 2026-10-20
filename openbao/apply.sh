@@ -34,4 +34,10 @@ for name, r in c["approles"].items():
     print(f"approle {name}: {'would write' if dry else 'write'} {' '.join(args)}")
     if not dry:
         subprocess.run(["bao", "write", f"auth/approle/role/{name}", *args], check=True, stdout=subprocess.DEVNULL)
+for name, r in (c.get("token_roles") or {}).items():   # per-app child-token roles (homelab-apps)
+    args = [f"allowed_policies={','.join(r['allowed_policies'])}", f"token_ttl={r['token_ttl']}",
+            f"token_max_ttl={r['token_max_ttl']}", f"renewable={str(r['renewable']).lower()}", "orphan=false"]
+    print(f"token role {name}: {'would write' if dry else 'write'} {' '.join(args)}")
+    if not dry:
+        subprocess.run(["bao", "write", f"auth/token/roles/{name}", *args], check=True, stdout=subprocess.DEVNULL)
 PY
