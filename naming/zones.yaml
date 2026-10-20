@@ -9,7 +9,7 @@ zones:
   mgt:
     name: Management-InternalServices
     vlan: 2
-    cidr: 192.168.67.0/29
+    cidr: 192.168.67.0/28    # UniFi 192.168.67.1/28 (checked 2026-10-20); was /29 here. protected.yaml still lists /29
     gateway: 192.168.67.1
     bridge: vmbr0
     router: lox-coresw-01
@@ -17,6 +17,8 @@ zones:
     guests: false        # PVE host and OpenClaw (CT 100) only. Hard limit.
     vmid: [100, 199]
     pool: pool-mgt
+    reserved_ips:            # hand-built protected guests (not in homelab-infra specs); named hosts in flows.yaml
+      192.168.67.3: hm1-mgt-aiops01 (CT 100)
   dmz:
     name: DMZ
     vlan: 10
@@ -81,7 +83,7 @@ zones:
     gateway: 192.168.74.1
     bridge: vmbr1
     router: lox-gw-01    # gateway-routed exception like wifi (Faris, 2026-10-11)
-    dhcp: [100, 254]     # UniFi IoT DHCP pool AFTER Faris shrinks it (today .6-.254; the UniFi check fails until then)
+    dhcp: [100, 254]     # UniFi IoT DHCP pool (.100-.254, checked 2026-10-20)
     guests: true         # client network that also hosts guests (decision 1 decided for iot: AdGuard DNS)
     vmid: [600, 699]
     pool: pool-iot
