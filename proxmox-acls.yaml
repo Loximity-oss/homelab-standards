@@ -22,6 +22,8 @@ roles:   # custom roles (built-ins: NoAccess, PVEAuditor, PVEDatastoreUser, PVES
                         VM.Config.Disk, VM.Config.HWType, VM.Config.Memory, VM.Config.Network, VM.Config.Options,
                         VM.GuestAgent.Audit, VM.PowerMgmt]      # svc-tpl-build (standards #17, homelab-infra #53)
   DevOpsTemplateStore: [Datastore.AllocateSpace, Datastore.AllocateTemplate, Datastore.Audit]   # dir-import01
+  DevOpsAppSnapshot: [VM.Audit, VM.Snapshot]                    # svc-apps: pre-deploy_* snapshots (homelab-apps 5.1)
+  DevOpsAppRollback: [VM.Audit, VM.Snapshot, VM.Snapshot.Rollback]   # svc-apps: stg auto-rollback only
 
 identities:   # user + its privsep API token; an ACL entry applies to both unless noted
   apply: {user: svc-tf-apply@pve, token: "svc-tf-apply@pve!pipeline"}
@@ -29,6 +31,7 @@ identities:   # user + its privsep API token; an ACL entry applies to both unles
   builder: {user: svc-tpl-build@pve, token: "svc-tpl-build@pve!pipeline"}
   openclaw: {user: svc-aiops-ops@pve}               # token svc-aiops-ops@pve!agent inherits (privsep 0)
   metrics: {user: svc-metrics@pve}
+  apps: {user: svc-apps@pve, token: "svc-apps@pve!pipeline"}   # homelab-apps deploy snapshots (runner-apps)
 
 acls:
   # path-level (not dropped by guest destroys)
@@ -40,6 +43,12 @@ acls:
   - {path: /sdn/zones/localnetwork/vmbr1/60, role: PVESDNUser, to: [builder]}           # stg VLAN only
   - {path: /storage/dir-import01, role: DevOpsTemplateStore, to: [builder]}
   - {path: /storage/lvmt-nvme01, role: PVEDatastoreUser, to: [builder]}
+  # homelab-apps: snapshot only on pools of zones with deployments (never pool-dmz: VM 210; never protected guests,
+  # which are in no pool). A new deployment zone = Class C entry here. Rollback only in stg (auto-rollback rule).
+  - {path: /pool/pool-wifi, role: DevOpsAppSnapshot, to: [apps]}
+  - {path: /pool/pool-iot, role: DevOpsAppSnapshot, to: [apps]}
+  - {path: /pool/pool-shr, role: DevOpsAppSnapshot, to: [apps]}
+  - {path: /pool/pool-stg, role: DevOpsAppRollback, to: [apps]}
 
 vms:   # per-VMID: dropped by PVE on destroy/restore -> re-applied by root
   - {vmids: [100, 300, 303], role: NoAccess, to: [apply, plan]}          # protected guests (protected.yaml)
