@@ -3,8 +3,9 @@
 Source of truth for naming conventions, controlled vocabularies and hard limits.
 
 - **Managed through the pipeline:** agents (Infrastructure Engineer) open PRs; nobody pushes to `main`.
-  - **Class B** (Reviewer `oc-rev` approves and merges): only additions to `naming/roles.yaml`, `naming/services.yaml`, `naming/tags.yaml`.
+  - **Class B** (Reviewer `oc-rev` approves; the merge broker merges): only additions to `naming/roles.yaml`, `naming/services.yaml`, `naming/tags.yaml`.
   - **Class C** (Faris): everything else — patterns, zones/IP plan, VMID blocks, `protected.yaml`, `naming/secrets.yaml`, `openbao/`, `lint/`, `ci/`, `.gitea/`, the conventions doc.
+  - Merges: only the merge broker (`ci-merger`, CT 300, infra #135) or Faris. It reads the class `ci/ci-pr.sh` saved for the PR head, never the label.
   - PR checks run **main's** `lint/naming.py` against the PR's data and homelab-infra `main`; PR code never runs.
   - After a merge, `apply` pushes registered tags and pools to Proxmox. OpenBao policies (`openbao/`) are still applied by Faris.
 - Need a new value? The Infrastructure Engineer opens a PR here (usually Class B).
