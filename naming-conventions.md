@@ -26,7 +26,7 @@
 
 ### 1.1 The `homelab-standards` repo
 
-The conventions live in their own Gitea repo, `homelab/homelab-standards`. Since v6 (2026-10-07) it is **pipeline-managed**: the Infrastructure Engineer (or Faris) opens PRs. Additions to roles/services/tags are Class B (the Reviewer merges), and everything else is Class C (Faris). PR checks run main's checker on the PR's data. After a merge, registered tags and pools are pushed to Proxmox.
+The conventions live in their own Gitea repo, `homelab/homelab-standards`. Since v6 (2026-10-07) it is **pipeline-managed**: the Infrastructure Engineer (or Faris) opens PRs. Additions to roles/services/tags are Class B (the Reviewer approves, the merge broker merges), and everything else is Class C (Faris). PR checks run main's checker on the PR's data. After a merge, registered tags and pools are pushed to Proxmox.
 
 ```
 homelab-standards/

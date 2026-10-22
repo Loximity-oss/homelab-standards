@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Standards PR: main's lint on the PR's data + infra main, yamllint, gitleaks, classify (B = additions to
 # roles/services/tags only; everything else C), label, request review. No Class A here.
+# Output: /var/lib/devops/plans/std-<HEAD_SHA>/class.json, written only when every check and the owner rule passed.
+# The merge broker (homelab-infra host/merge-broker, infra #135) merges on it; no file = no merge.
 BASE=$(cd "$(dirname "$0")/.." && pwd); WORK=$(dirname "$BASE")
 source "$BASE/ci/lib.sh"
 bao_login ci-plan; export GITEA_API_TOKEN UNIFI_CI_USER UNIFI_CI_PASS; GITEA_API_TOKEN=$(secret plan gitea_ci_token)
 UNIFI_CI_USER=$(secret plan unifi_ci_user 2>/dev/null || true); UNIFI_CI_PASS=$(secret plan unifi_ci_pass 2>/dev/null || true); bao_logout
 git -C "$BASE" fetch -q origin "refs/pull/$PR/head"
 [ "$(git -C "$BASE" rev-parse FETCH_HEAD)" = "$HEAD_SHA" ] || { echo "PR head moved"; exit 0; }
+PLANS=/var/lib/devops/plans
+find "$PLANS" -mindepth 1 -maxdepth 1 -type d -name 'std-*' -mtime +14 -exec rm -rf {} + 2>/dev/null || true
+OUT="$PLANS/std-$HEAD_SHA"; rm -rf "$OUT"   # a failed re-run of this head must not leave an older class behind
 HEAD_DIR="$WORK/head"; rm -rf "$HEAD_DIR"; git -C "$BASE" worktree add -q -f --detach "$HEAD_DIR" "$HEAD_SHA"
 MAIN=$(git -C "$BASE" rev-parse origin/main)
 if ! git -C "$BASE" merge-base --is-ancestor "$MAIN" "$HEAD_SHA"; then
@@ -41,6 +46,7 @@ Only the owning engineer (owners.yaml) or faris may change these files. Ask the 
   python3 "$BASE/ci/gitea.py" comment "$PR" "$WORK/c.md"; exit 1
 fi
 CLASS=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["class"])' "$WORK/class.json")
+install -d -m 0750 "$OUT"; install -m 0640 "$WORK/class.json" "$OUT/class.json"
 WIP=""; case "$TITLE" in WIP*) WIP=wip;; esac
 python3 "$BASE/ci/gitea.py" labels "$PR" "class/$CLASS${WIP:+,wip}"
 case "$CLASS$WIP" in
