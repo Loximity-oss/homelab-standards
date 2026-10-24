@@ -51,8 +51,8 @@ acls:
   - {path: /pool/pool-stg, role: DevOpsAppRollback, to: [apps]}
 
 vms:   # per-VMID: dropped by PVE on destroy/restore -> re-applied by root
-  - {vmids: [100, 300, 303], role: NoAccess, to: [apply, plan]}          # protected guests (protected.yaml)
-  - {vmids: [100, 300, 303], role: PVEAuditor, to: [openclaw]}           # OpenClaw audit-only on protected guests
+  - {vmids: [100, 300, 301, 303], role: NoAccess, to: [apply, plan]}     # protected guests (protected.yaml)
+  - {vmids: [100, 300, 301, 303], role: PVEAuditor, to: [openclaw]}      # OpenClaw audit-only on protected guests
   - {ranges: [[9000, 9099], [9990, 9999]], role: DevOpsTemplateBuild, to: [builder]}   # vmid-ranges.yaml template_lifecycle
   - {ranges: [[9000, 9099]], role: DevOpsTemplateUse, to: [apply]}       # templates clone-only for the apply token
   - {vmids: [9000], role: PVEAuditor, to: [plan]}

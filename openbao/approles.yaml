@@ -4,7 +4,7 @@ approles:
   ci-plan:  {policies: [ci-plan],  cidrs: [192.168.70.20/32], client: "CT 300 runner host-plan (user runner)"}
   ci-apply: {policies: [ci-apply], cidrs: [192.168.70.20/32], client: "CT 300 runner host-apply (user runner-apply)"}
   ci-template: {policies: [ci-template], cidrs: [192.168.70.20/32], client: "CT 300 runner host-template (user runner-template)"}
-  aiops:    {policies: [aiops],    cidrs: [192.168.67.3/32],  client: "CT 100 openbao-agent (user openclaw)"}
+  aiops:    {policies: [aiops],    cidrs: [192.168.70.13/32, 192.168.67.3/32], client: "CT 301 openbao-agent (user openclaw); .67.3 = CT 100 rollback, drop when destroyed"}
   ci-apps:  {policies: [ci-apps],  cidrs: [192.168.70.20/32], client: "CT 300 runner host-apps (user runner-apps); homelab-apps"}
 # Token roles for per-app child tokens (homelab-apps 5b): minted by ci-apps per app play, create-only on that app.
 # No bound_cidrs (bao_create_secret runs on CT 300 with the child token); TTL per wave; not renewable.

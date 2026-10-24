@@ -51,8 +51,8 @@ schema:
 #   template-build (192.168.76.250) -> 1.1.1.1, 8.8.8.8: DNS 53 tcp/udp (exception to stg -> shr DNS)
 #   template-build (192.168.76.250) -> mgt, net, shr, int, dmz, wifi, iot: deny (replies to CT 300 SSH only)
 # OpenClaw dashboard (Faris 2026-10-15, homelab/openclaw e417d97; read-only, no auth, shows no secrets or tool output):
-#   tru (Faris admin, 192.168.73.0/28) -> hm1-mgt-aiops01 (192.168.67.3): HTTP 9180/tcp
-#   no host firewall on CT 100: any zone that can route to mgt reaches it; other zones -> mgt stay deny per the matrix above
+#   tru (Faris admin, 192.168.73.0/28) -> hm1-shr-aiops01 (192.168.70.13): HTTP 9180/tcp
+#   no host firewall on CT 301: any zone that can route to shr reaches it (was CT 100 192.168.67.3 until 2026-10-24)
 #
 # UniFi implementation state of the gateway-routed guest flows (checked 2026-10-20 by oc-net, read-only).
 # UniFi zones: shr/int/dmz/stg/tru/mgt networks -> zone 'Internal'; wifi 192.168.69.0/24, iot 192.168.74.0/24,
@@ -60,32 +60,40 @@ schema:
 #   wifi+iot  shr 192.168.70.20 -> 192.168.69.10-11, 192.168.74.10-11 tcp/22   IMPLEMENTED
 #             one policy 'Allow SHRSVC to All DNS LXCs' (Internal -> Untrusted Networks; return auto-allowed);
 #             it replaced 'Allow SHRSVC to IoT DNS LXC' (2026-10-17 state) and closes the wifi gap of homelab-infra #86
-#   wifi+iot  CT 100 192.168.67.3 -> 192.168.69.10-11, 192.168.74.10-11 udp/53, tcp/22,80, icmp   IMPLEMENTED
+#   wifi+iot  CT 301 192.168.70.13 -> 192.168.69.10-11, 192.168.74.10-11 udp/53, tcp/22,80, icmp   PROPOSED (2026-10-24)
 #             three policies 'Allow AIOPS to DNS LXCs UDP 53 / TCP 22,80 / ICMP' (Internal -> Untrusted Networks;
-#             created by Faris 2026-10-20; entry ct100-dns-probes below)
+#             created by Faris 2026-10-20 for source 192.168.67.3; source IP to change to 192.168.70.13; entry aiops-dns-probes)
 # Internal-network DNS (tru/int/dmz/stg -> wifi DNS 53, tru -> wifi DNS admin UI 80/443): design pending Faris
 # (2026-10-17). The 2026-10-09 lines above stay as recorded; nothing is planned or implemented for these until then.
 # iot/gst -> wifi DNS 53: undecided (Faris open question).
 flows:
-  ct100-k3s-api:
-    from: hm1-mgt-aiops01          # CT 100, 192.168.67.3 (mgt reserved_ips, standards #31)
+  aiops-pve-api:
+    from: hm1-shr-aiops01          # CT 301, 192.168.70.13 (shr reserved_ips)
+    to: hm1-mgt-pve01              # 192.168.67.2 (mgt reserved_ips)
+    ports: [8006/tcp, 9100/tcp, icmp]
+    router: lox-coresw-01          # shr and mgt both routed by the core switch: no UDM policy
+    state: proposed
+    why: OpenClaw Proxmox tools + pve-exporter (8006), node exporter scrape (9100). Exception to shr -> mgt deny,
+         like the CT 300 runners (Terraform, verify, snapshots); OpenClaw moved from mgt CT 100 on 2026-10-24
+    ref: OpenClaw move to shr (2026-10-24)
+  aiops-k3s-api:
+    from: hm1-shr-aiops01          # CT 301, 192.168.70.13: same zone and L2 as the VIP, no rule needed
     to: shr                        # k3s API VIP 192.168.70.200 (svc_k3s_api_vip; not a named host)
     ports: [6443/tcp]
-    router: lox-coresw-01          # mgt and shr both routed by the core switch: no UDM policy
+    router: lox-coresw-01          # same subnet since 2026-10-24: not routed at all
     state: proposed
-    why: blackbox probe https://<vip>:6443/readyz (K3sAPIDown), homelab-apps 4.3; mgt -> shr is allow in the matrix
+    why: blackbox probe https://<vip>:6443/readyz (K3sAPIDown), homelab-apps 4.3 (was ct100-k3s-api)
     ref: homelab-infra #127; homelab-apps proposal 4-verification.md 4.3
-  ct100-dns-probes:
-    from: hm1-mgt-aiops01          # CT 100, 192.168.67.3 only (not the whole mgt zone)
+  aiops-dns-probes:
+    from: hm1-shr-aiops01          # CT 301, 192.168.70.13 only (not the whole shr zone; was ct100-dns-probes)
     to: [hm1-wifi-dns01, hm1-wifi-dns02, hm1-iot-dns01, hm1-iot-dns02]   # 192.168.69.10-11, 192.168.74.10-11
     ports: [53/udp, 22/tcp, 80/tcp, icmp]
     router: lox-gw-01              # Internal -> Untrusted Networks (predefined Block All)
-    state: implemented
-    checked: 2026-10-20
-    policies:                      # created by Faris 2026-10-20. Source zone Internal, IP 192.168.67.3;
+    state: proposed                # implemented 2026-10-20 for 192.168.67.3; back to implemented after the source-IP edit
+    policies:                      # created by Faris 2026-10-20. Source zone Internal, IP 192.168.67.3 -> 192.168.70.13;
                                    # destination zone Untrusted Networks, the four IPs; action allow, enabled
       - Allow AIOPS to DNS LXCs TCP 22,80
       - Allow AIOPS to DNS LXCs UDP 53
       - Allow AIOPS to DNS LXCs ICMP
-    why: blackbox probes from CT 100 (icmp + ssh per guest; AdGuard dns_udp :53 and http_2xx :80), homelab-apps 4.3
+    why: blackbox probes from CT 301 (icmp + ssh per guest; AdGuard dns_udp :53 and http_2xx :80), homelab-apps 4.3
     ref: homelab-infra #127; homelab-apps proposal 4-verification.md 4.3 (net R3)

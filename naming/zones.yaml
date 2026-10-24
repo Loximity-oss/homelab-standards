@@ -14,11 +14,12 @@ zones:
     bridge: vmbr0
     router: lox-coresw-01
     dhcp: none
-    guests: false        # PVE host and OpenClaw (CT 100) only. Hard limit.
+    guests: false        # PVE host and networking gear only (OpenClaw moved to shr CT 301, 2026-10-24). Hard limit.
     vmid: [100, 199]
     pool: pool-mgt
     reserved_ips:            # hand-built protected guests (not in homelab-infra specs); named hosts in flows.yaml
-      192.168.67.3: hm1-mgt-aiops01 (CT 100)
+      192.168.67.2: hm1-mgt-pve01 (PVE host)
+      192.168.67.3: hm1-mgt-aiops01 (CT 100, retired 2026-10-24; free after it is destroyed)
   dmz:
     name: DMZ
     vlan: 10
@@ -43,6 +44,7 @@ zones:
     ip_bands: {static: [10, 99], vip: [200, 239]}
     reserved_ips:            # hand-built protected guests (not in homelab-infra specs)
       192.168.70.12: hm1-shr-vault01 (CT 303)
+      192.168.70.13: hm1-shr-aiops01 (CT 301, OpenClaw)
       192.168.70.20: hm1-shr-cicd01 (CT 300)
   int:
     name: Internal

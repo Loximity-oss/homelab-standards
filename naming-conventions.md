@@ -114,7 +114,7 @@ Rules:
 | Today | New name | Len |
 |---|---|---|
 | PRX-SRV001 (PVE host) | `hm1-mgt-pve01` | 13 |
-| AISVC-CNT001 (CT 106, OpenClaw) | `hm1-mgt-aiops01` | 15 |
+| AISVC-CNT001 (CT 106, OpenClaw) | `hm1-shr-aiops01` (CT 301; was `hm1-mgt-aiops01` CT 100 until 2026-10-24) | 15 |
 | DEVOPS-CNT001 (CT 107, Gitea + runner) | `hm1-shr-cicd01` | 14 |
 | DNSSVC-CNT001/002 | `hm1-shr-dns01`, `hm1-shr-dns02` | 13 |
 | GUAC (CT 101) | `hm1-dmz-guac01` | 14 |
@@ -156,7 +156,7 @@ Source of truth: `homelab-standards/naming/zones.yaml`, owned by the **Network E
 
 | Zone code | UniFi network | VLAN | Subnet | Router (L3) | DHCP | Guests / notes |
 |---|---|---|---|---|---|---|
-| `mgt` | Management-InternalServices | 2 | 192.168.67.0/28 | `lox-coresw-01` | none | PVE host and OpenClaw only (`vmbr0`). **Hard limit: no guest attaches here** |
+| `mgt` | Management-InternalServices | 2 | 192.168.67.0/28 | `lox-coresw-01` | none | PVE host and networking gear only (`vmbr0`). **Hard limit: no guest attaches here** |
 | `dmz` | DMZ | 10 | 192.168.71.0/24 | `lox-coresw-01` | Server | Guests — internet-facing / untrusted |
 | `shr` | Shared Services | 20 | 192.168.70.0/24 | `lox-coresw-01` | Server | Guests — DNS, DevOps plane, vault, IdP, monitoring |
 | `int` | Internal | 40 | 192.168.72.0/24 | `lox-coresw-01` | Server | Guests — clusters and internal workloads |
@@ -183,7 +183,8 @@ A zone hosts guests only if it is trunked on `vmbr1` and routed by the core swit
 | `.240`–`.254` | Reserved (temporary, migrations) | Network Engineer |
 
 The small networks don't use these bands:
-- `mgt` 192.168.67.0/28 (protected subnet, `protected.yaml`): `.1` gateway, `.2` PVE host, `.3` OpenClaw, `.4`–`.14` networking gear and spare. No guest ever.
+- `mgt` 192.168.67.0/28 (protected subnet, `protected.yaml`): `.1` gateway, `.2` PVE host, `.3` retired CT 100 (free once destroyed), `.4`–`.14` networking gear and spare. No guest ever.
+- `shr` `.13` OpenClaw `hm1-shr-aiops01` (CT 301, protected, in `protected.yaml` `subnets` as a /32).
 - `tru` 192.168.73.0/28: `.1` gateway, the rest DHCP for trusted endpoints (UniFi pool). No servers.
 
 `wifi` 192.168.69.0/24: `.1` gateway (`lox-gw-01`), `.2`–`.9` network-infra reserved, `.10`–`.99` static guests (Terraform), `.100`–`.254` DHCP for wireless clients (UniFi). No VIP band: `.200`–`.239` lies inside the DHCP pool.
@@ -238,9 +239,9 @@ Mapping of current names: `devops.loximity.dev` (mentioned in the network doc) b
 
 | Block | Zone | Core `x00–x09` | Workloads `x10–x99` |
 |---|---|---|---|
-| 100–199 | `mgt` (VLAN 2) | `100` OpenClaw `hm1-mgt-aiops01` | None: the management /28 holds only the PVE host, OpenClaw and networking gear (no guests). The block exists so the mapping is uniform |
+| 100–199 | `mgt` (VLAN 2) | `100` retired OpenClaw `hm1-mgt-aiops01` (until destroyed) | None: the management /28 holds only the PVE host and networking gear (no guests). The block exists so the mapping is uniform |
 | 200–299 | `dmz` (VLAN 10) | Reverse proxy / jump / gateway services | Internet-facing apps (`hm1-dmz-guac01`, `hm1-dmz-jump01`) |
-| 300–399 | `shr` (VLAN 20) | `300` DevOps plane `hm1-shr-cicd01` · `301`/`302` DNS `hm1-shr-dns01/02` · `303` OpenBao `hm1-shr-vault01` (protected, 192.168.70.12) · future DCs, IdP, PBS | Shared services (monitoring, logging, databases) |
+| 300–399 | `shr` (VLAN 20) | `300` DevOps plane `hm1-shr-cicd01` · `301` OpenClaw `hm1-shr-aiops01` (protected, 192.168.70.13; since 2026-10-24) · `303` OpenBao `hm1-shr-vault01` (protected, 192.168.70.12) · future DCs, IdP, PBS | Shared services (monitoring, logging, databases) |
 | 400–499 | `int` (VLAN 40) | Cluster control planes | Cluster workers, internal apps |
 | 500–599 | `wifi` (VLAN 110, Faris 2026-10-09) | `501`/`502` DNS (AdGuard) `hm1-wifi-dns01/02` | Other guests serving wireless clients |
 | 600–699 | `iot` (VLAN 100, Faris 2026-10-11) | `601`/`602` DNS (AdGuard) `hm1-iot-dns01/02` | Other guests serving IoT devices |
@@ -288,7 +289,7 @@ Proxmox tags allow `a-z 0-9 - _ +`, so tags are `key-value`:
 | `mgd-` | `tf` (Terraform), `manual` | yes |
 | `owner-` | `infra`, `sys`, `app`, `net`, `sre`, `faris` | yes |
 | `os-` | `ubuntu2604`, `debian13`, `win2025`, … | yes |
-| `patch-` | `ring0` (manual, e.g. CT 100 and 300), `ring1` (auto Sev1/2), `ring2` | yes |
+| `patch-` | `ring0` (manual, e.g. CT 301 and 300), `ring1` (auto Sev1/2), `ring2` | yes |
 | `env-` | `prod`, `staging` | optional (`staging` set automatically for `stg` guests) |
 | `protected` | (no value) | on hard-limited guests only |
 
@@ -310,7 +311,7 @@ Proxmox firewall objects: alias `<zone>-<hostname-role>` (e.g. `shr-dns`), IP se
 | AI agent identity | `oc-<agent>` | `oc-pm`, `oc-infra`, `oc-sys`, `oc-app`, `oc-net`, `oc-rev`, `oc-sre`, `oc-tutor` | Matches the 8-agent team. Used in Gitea, audit log and SSH keys |
 | CI bot | `ci-<purpose>` | `ci-merger`, `ci-runner` | |
 | Group / role | `grp-<scope>-<right>` (groups), PascalCase (Proxmox roles) | `grp-pve-operators`; roles `DevOpsEngineer`, `DevOpsPlan`, `OpenClawOperator` | |
-| SSH key comment / file | `<identity>@<origin>`, `id_ed25519_<identity>` | `oc-sys@hm1-mgt-aiops01` | Key file names, not reused across identities |
+| SSH key comment / file | `<identity>@<origin>`, `id_ed25519_<identity>` | `oc-sys@hm1-shr-aiops01` | Key file names, not reused across identities |
 
 Shared admin accounts (`root` login, `devops-admin`) are break-glass only and listed as such in `docs/identities.md`.
 
