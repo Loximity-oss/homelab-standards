@@ -60,9 +60,9 @@ schema:
 #   wifi+iot  shr 192.168.70.20 -> 192.168.69.10-11, 192.168.74.10-11 tcp/22   IMPLEMENTED
 #             one policy 'Allow SHRSVC to All DNS LXCs' (Internal -> Untrusted Networks; return auto-allowed);
 #             it replaced 'Allow SHRSVC to IoT DNS LXC' (2026-10-17 state) and closes the wifi gap of homelab-infra #86
-#   wifi+iot  CT 301 192.168.70.13 -> 192.168.69.10-11, 192.168.74.10-11 udp/53, tcp/22,80, icmp   PROPOSED (2026-10-24)
+#   wifi+iot  CT 301 192.168.70.13 -> 192.168.69.10-11, 192.168.74.10-11 udp/53, tcp/22,80, icmp   IMPLEMENTED
 #             three policies 'Allow AIOPS to DNS LXCs UDP 53 / TCP 22,80 / ICMP' (Internal -> Untrusted Networks;
-#             created by Faris 2026-10-20 for source 192.168.67.3; source IP to change to 192.168.70.13; entry aiops-dns-probes)
+#             created by Faris 2026-10-20 for 192.168.67.3, source changed to 192.168.70.13 by Faris 2026-10-24; entry aiops-dns-probes)
 # Internal-network DNS (tru/int/dmz/stg -> wifi DNS 53, tru -> wifi DNS admin UI 80/443): design pending Faris
 # (2026-10-17). The 2026-10-09 lines above stay as recorded; nothing is planned or implemented for these until then.
 # iot/gst -> wifi DNS 53: undecided (Faris open question).
@@ -89,8 +89,9 @@ flows:
     to: [hm1-wifi-dns01, hm1-wifi-dns02, hm1-iot-dns01, hm1-iot-dns02]   # 192.168.69.10-11, 192.168.74.10-11
     ports: [53/udp, 22/tcp, 80/tcp, icmp]
     router: lox-gw-01              # Internal -> Untrusted Networks (predefined Block All)
-    state: proposed                # implemented 2026-10-20 for 192.168.67.3; back to implemented after the source-IP edit
-    policies:                      # created by Faris 2026-10-20. Source zone Internal, IP 192.168.67.3 -> 192.168.70.13;
+    state: implemented
+    checked: 2026-10-24             # from CT 301: icmp, 22/tcp, 80/tcp (302), 53/udp answer on all four IPs
+    policies:                      # created by Faris 2026-10-20. Source zone Internal, IP 192.168.70.13 (was .67.3 until 2026-10-24);
                                    # destination zone Untrusted Networks, the four IPs; action allow, enabled
       - Allow AIOPS to DNS LXCs TCP 22,80
       - Allow AIOPS to DNS LXCs UDP 53
