@@ -92,7 +92,7 @@ flows:
     state: proposed
     policies:                      # existing policies to EXTEND (Faris, Class C): add 192.168.74.12 to the destination IPs
       - Allow DEVOPS to All DNS LXCs   # tcp/22 from 192.168.70.20; today lists only .74.10/.74.11/.69.10/.69.11
-    why: Ansible and pipeline tests over SSH to hm1-iot-app01; homelab-infra #171 apply fails with an SSH timeout
+    why: Ansible and pipeline tests over SSH to hm1-iot-app01; the homelab-infra PR 171 apply fails with an SSH timeout
          because the DNS-LXC policy does not cover .74.12. Alternative for more non-DNS guests in iot, one destination
          IP group (or the 192.168.74.0/24 subnet) with tcp/22 from 192.168.70.20, instead of editing the list per guest
     ref: homelab-infra #171
