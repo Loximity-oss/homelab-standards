@@ -19,7 +19,6 @@ zones:
     pool: pool-mgt
     reserved_ips:            # hand-built protected guests (not in homelab-infra specs); named hosts in flows.yaml
       192.168.67.2: hm1-mgt-pve01 (PVE host)
-      192.168.67.3: hm1-mgt-aiops01 (CT 100, retired 2026-10-24; free after it is destroyed)
   dmz:
     name: DMZ
     vlan: 10

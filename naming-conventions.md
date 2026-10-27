@@ -183,7 +183,7 @@ A zone hosts guests only if it is trunked on `vmbr1` and routed by the core swit
 | `.240`–`.254` | Reserved (temporary, migrations) | Network Engineer |
 
 The small networks don't use these bands:
-- `mgt` 192.168.67.0/28 (protected subnet, `protected.yaml`): `.1` gateway, `.2` PVE host, `.3` retired CT 100 (free once destroyed), `.4`–`.14` networking gear and spare. No guest ever.
+- `mgt` 192.168.67.0/28 (protected subnet, `protected.yaml`): `.1` gateway, `.2` PVE host, `.3`–`.14` networking gear and spare. No guest ever.
 - `shr` `.13` OpenClaw `hm1-shr-aiops01` (CT 301, protected, in `protected.yaml` `subnets` as a /32).
 - `tru` 192.168.73.0/28: `.1` gateway, the rest DHCP for trusted endpoints (UniFi pool). No servers.
 
@@ -239,7 +239,7 @@ Mapping of current names: `devops.loximity.dev` (mentioned in the network doc) b
 
 | Block | Zone | Core `x00–x09` | Workloads `x10–x99` |
 |---|---|---|---|
-| 100–199 | `mgt` (VLAN 2) | `100` retired OpenClaw `hm1-mgt-aiops01` (until destroyed) | None: the management /28 holds only the PVE host and networking gear (no guests). The block exists so the mapping is uniform |
+| 100–199 | `mgt` (VLAN 2) | none (was CT 100, retired OpenClaw `hm1-mgt-aiops01`, destroyed) | None: the management /28 holds only the PVE host and networking gear (no guests). The block exists so the mapping is uniform |
 | 200–299 | `dmz` (VLAN 10) | Reverse proxy / jump / gateway services | Internet-facing apps (`hm1-dmz-guac01`, `hm1-dmz-jump01`) |
 | 300–399 | `shr` (VLAN 20) | `300` DevOps plane `hm1-shr-cicd01` · `301` OpenClaw `hm1-shr-aiops01` (protected, 192.168.70.13; since 2026-10-24) · `303` OpenBao `hm1-shr-vault01` (protected, 192.168.70.12) · future DCs, IdP, PBS | Shared services (monitoring, logging, databases) |
 | 400–499 | `int` (VLAN 40) | Cluster control planes | Cluster workers, internal apps |
