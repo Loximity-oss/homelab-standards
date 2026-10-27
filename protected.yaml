@@ -3,7 +3,6 @@
 # Protected guests are not in Terraform specs: their size is recorded here (live values, `pct config`, 2026-10-18).
 # Only the VMID keys are machine-read (lint, classifier, template builder, OpenClaw tools); the text is for people.
 vmids:
-  100: hm1-mgt-aiops01 (retired OpenClaw, stopped, rollback until 2026-10-31; then destroyed and removed here)
   300: hm1-shr-cicd01 (DevOps plane) [4 GB RAM, 4 vCPU]
   301: hm1-shr-aiops01 (OpenClaw, moved from CT 100 on 2026-10-24) [2 GB RAM, 4 vCPU]
   303: hm1-shr-vault01 (OpenBao secrets store) [2 GB RAM, 2 vCPU]
