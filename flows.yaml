@@ -122,3 +122,13 @@ flows:
       - Allow AIOPS to DNS LXCs ICMP        # add 192.168.74.12 to destination IPs
     why: SSH diagnostics and icmp probes from CT 301 to the iot app guest
     ref: homelab-infra #179
+  tru-gns3-ui:
+    from: tru                      # Faris admin clients, 192.168.73.0/28
+    to: hm1-stg-net01              # 192.168.76.10 (GNS3 VM, VMID 810; spec comes with the guest PR)
+    ports: [3080/tcp, 5000-5099/tcp]
+    router: lox-gw-01              # tru is gateway-routed: UDM policy needed (Class C)
+    state: proposed
+    policies:
+      - Allow TRU to GNS3 UI and consoles
+    why: GNS3 web UI/API (3080) and node telnet consoles (5000-5099) of the lab VM; no other source
+    ref: Faris 2026-10-31 GNS3 lab VM hm1-stg-net01
