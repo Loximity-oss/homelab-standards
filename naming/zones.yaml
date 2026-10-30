@@ -68,6 +68,9 @@ zones:
     vmid: [800, 899]
     pool: pool-stg
     ip_bands: {static: [10, 99], vip: [200, 239]}
+    # lab_bridges: isolated L2 bridges on hm1-mgt-pve01 (no ports, no IP, no uplink, no VLAN) that a VM of this zone may attach
+    # as extra_nics (net1..). Not VLANs, not routed, no UniFi object. vmbr0 never (protected.yaml). Checked by lint/naming.py (standards #46).
+    lab_bridges: [vmbr10, vmbr11, vmbr12, vmbr13, vmbr14, vmbr15, vmbr16, vmbr17, vmbr18]
     reserved_ips:            # .240-.254 reserved band; not for guest specs
       192.168.76.250: template-build (seal/verify boots)   # homelab-infra docs/templates.md step 4; scratch VMs 9990-9992
   tru:
