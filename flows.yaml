@@ -63,6 +63,9 @@ schema:
 #   wifi+iot  CT 301 192.168.70.13 -> 192.168.69.10-11, 192.168.74.10-11 udp/53, tcp/22,80, icmp   IMPLEMENTED
 #             three policies 'Allow AIOPS to DNS LXCs UDP 53 / TCP 22,80 / ICMP' (Internal -> Untrusted Networks;
 #             created by Faris 2026-10-20 for 192.168.67.3, source changed to 192.168.70.13 by Faris 2026-10-24; entry aiops-dns-probes)
+# GNS3 lab VM (Faris 2026-10-31; hm1-stg-net01, 192.168.76.10, VMID 810): tru (Faris admin) -> GNS3 server API/UI 3080/tcp and
+# node consoles (GNS3 default console range is 5000-10000; narrowed to 5000-5099/tcp, widen by PR if more nodes are needed).
+# tru is routed by lox-gw-01, stg by lox-coresw-01: the flow crosses the UDM (zone-firewall policy, Class C, not yet created).
 # Internal-network DNS (tru/int/dmz/stg -> wifi DNS 53, tru -> wifi DNS admin UI 80/443): design pending Faris
 # (2026-10-17). The 2026-10-09 lines above stay as recorded; nothing is planned or implemented for these until then.
 # iot/gst -> wifi DNS 53: undecided (Faris open question).
@@ -98,3 +101,34 @@ flows:
       - Allow AIOPS to DNS LXCs ICMP
     why: blackbox probes from CT 301 (icmp + ssh per guest; AdGuard dns_udp :53 and http_2xx :80), homelab-apps 4.3
     ref: homelab-infra #127; homelab-apps proposal 4-verification.md 4.3 (net R3)
+  cicd-iot-app-ssh:
+    from: hm1-shr-cicd01           # CT 300, 192.168.70.20
+    to: hm1-iot-app01              # 192.168.74.12 (iot app guest, homelab-infra #179)
+    ports: [22/tcp]
+    router: lox-gw-01              # Internal -> Untrusted Networks (predefined Block All)
+    state: proposed
+    policies:                      # live policy lists only 192.168.74.10-11 and 192.168.69.10-11 as destinations
+      - Allow DEVOPS to All DNS LXCs   # change: add 192.168.74.12 to its destination IPs (or rename, Faris decides)
+    why: Ansible + pipeline tests reach the new iot app guest; Ansible failed with SSH timeout after the #179 apply
+    ref: homelab-infra #179
+  aiops-iot-app-ssh:
+    from: hm1-shr-aiops01          # CT 301, 192.168.70.13
+    to: hm1-iot-app01              # 192.168.74.12
+    ports: [22/tcp, icmp]
+    router: lox-gw-01
+    state: proposed
+    policies:
+      - Allow AIOPS to DNS LXCs TCP 22,80   # add 192.168.74.12 to destination IPs (80 is not needed for app01)
+      - Allow AIOPS to DNS LXCs ICMP        # add 192.168.74.12 to destination IPs
+    why: SSH diagnostics and icmp probes from CT 301 to the iot app guest
+    ref: homelab-infra #179
+  tru-gns3-ui:
+    from: tru                      # Faris admin clients, 192.168.73.0/28
+    to: hm1-stg-net01              # 192.168.76.10 (GNS3 VM, VMID 810; spec comes with the guest PR)
+    ports: [3080/tcp, 5000-5099/tcp]
+    router: lox-gw-01              # tru is gateway-routed: UDM policy needed (Class C)
+    state: proposed
+    policies:
+      - Allow TRU to GNS3 UI and consoles
+    why: GNS3 web UI/API (3080) and node telnet consoles (5000-5099) of the lab VM; no other source
+    ref: Faris 2026-10-31 GNS3 lab VM hm1-stg-net01
