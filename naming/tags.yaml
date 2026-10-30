@@ -2,10 +2,10 @@
 required: [zone, role, mgd, owner, os, patch]
 keys:
   zone: [mgt, dmz, shr, int, stg, wifi, iot]
-  role: [pve, aiops, cicd, dns, dc, idp, pki, vault, jump, guac, rp, mon, log, db, k3sc, k3sw, nas, bkp, app, ws, web]
+  role: [pve, aiops, cicd, dns, dc, idp, pki, vault, jump, guac, rp, mon, log, db, k3sc, k3sw, nas, bkp, app, ws, web, net]
   mgd: [tf, manual, tpl]   # tpl: VM templates built by the homelab-infra template pipeline (standards #17; 6.4 tpl-*)
   owner: [infra, cfg, net, sre, faris]
-  os: [ubuntu2604, debian13, win2025, arch, nixos, fedora44]
+  os: [ubuntu2604, debian13, win2025, arch, nixos, fedora44, none]   # none: VM with a blank disk, no OS (needs tests: l1-only)
   patch: [ring0, ring1, ring2]
   env: [prod, staging]
   feat: [keyctl]       # container features set by host/pve-feature-broker (option B, 2026-10-08)
