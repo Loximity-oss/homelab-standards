@@ -108,7 +108,8 @@ flows:
     router: lox-gw-01              # Internal -> Untrusted Networks (predefined Block All)
     state: proposed
     policies:                      # live policy lists only 192.168.74.10-11 and 192.168.69.10-11 as destinations
-      - Allow DEVOPS to All DNS LXCs   # change: add 192.168.74.12 to its destination IPs (or rename, Faris decides)
+      - Allow DEVOPS to All DNS LXCs   # preferred: destination = subnets 192.168.74.0/24 + 192.168.69.0/24 (all iot/wifi guests, tcp/22)
+                                       # instead of per-IP; minimal: add 192.168.74.12. Rename to 'Allow DEVOPS to iot+wifi guests SSH' (Faris decides)
     why: Ansible + pipeline tests reach the new iot app guest; Ansible failed with SSH timeout after the #179 apply
     ref: homelab-infra #179
   aiops-iot-app-ssh:
@@ -118,8 +119,10 @@ flows:
     router: lox-gw-01
     state: proposed
     policies:
-      - Allow AIOPS to DNS LXCs TCP 22,80   # add 192.168.74.12 to destination IPs (80 is not needed for app01)
-      - Allow AIOPS to DNS LXCs ICMP        # add 192.168.74.12 to destination IPs
+      - Allow AIOPS to DNS LXCs TCP 22,80   # minimal: add 192.168.74.12 to destination IPs (80 is not needed for app01)
+      - Allow AIOPS to DNS LXCs ICMP        # minimal: add 192.168.74.12 to destination IPs
+                                            # preferred: use the subnets 192.168.74.0/24 + 192.168.69.0/24 for tcp/22 and icmp (Faris decides;
+                                            # port 80 and udp 53 stay limited to the DNS LXC IPs)
     why: SSH diagnostics and icmp probes from CT 301 to the iot app guest
     ref: homelab-infra #179
   tru-gns3-ui:
