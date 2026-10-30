@@ -11,8 +11,13 @@ import yaml
 REPOS = ("infra", "apps")
 REQUIRED = {"hostname", "vmid", "type", "role", "os", "ip", "owner", "patch"}
 SIZING = {"cores", "memory_mb", "disk_gb"}          # required for lxc; optional for vm (baseline 2/2048/16, decision 32 D6)
-OPTIONAL = SIZING | {"datastore", "description", "swap_mb", "nesting", "env", "keyctl"}
+OPTIONAL = SIZING | {"datastore", "description", "swap_mb", "nesting", "env", "keyctl", "tests", "extra_nics", "cpu_type"}
 LXC_ONLY = {"swap_mb", "nesting", "keyctl"}
+VM_ONLY = {"tests", "extra_nics", "cpu_type"}
+NO_OS = "none"                                     # os: none = VM with a blank disk, no OS since day 0 (Faris 2026-10-31)
+TEST_EXEMPTIONS = {"l1-only"}                      # allowed ONLY with os: none (L2/L3 can't run without an OS)
+CPU_TYPES = {"x86-64-v2-AES", "host"}              # vm cpu_type; host = nested virtualisation (lab VMs)
+MAX_EXTRA_NICS = 15                                # net1-net15; net0 is always the zone NIC
 TYPES = {"lxc", "vm"}
 DATASTORES = {"lvmt-nvme01", "lvmt-sata01"}
 VM_MIN_DISK_GB = 8                                 # template 9000 disk
@@ -104,12 +109,25 @@ def lint_infra(a, S, I, zones_doc, roles, err):
         if unknown: err(rel, f"unknown keys: {sorted(unknown)}")
         if s.get("type") == "lxc" and SIZING - set(s):
             err(rel, f"lxc needs {sorted(SIZING - set(s))}")
+        if s.get("type") != "vm" and VM_ONLY & set(s):
+            err(rel, f"{sorted(VM_ONLY & set(s))} are vm-only")
         if s.get("type") == "vm":
             if LXC_ONLY & set(s):
                 err(rel, f"{sorted(LXC_ONLY & set(s))} are lxc-only")
             if isinstance(s.get("disk_gb"), int) and s["disk_gb"] < VM_MIN_DISK_GB:
                 err(rel, f"disk_gb must be >= {VM_MIN_DISK_GB} for a vm (template disk)")
-        if isinstance(s.get("os"), str):
+        if s.get("os") == NO_OS:
+            if s.get("type") != "vm":
+                err(rel, "os 'none' is only for type vm (blank disk, no template)")
+            if s.get("tests") != "l1-only":
+                err(rel, "os 'none' needs tests: l1-only (no OS: L2/L3 can't run)")
+        elif "tests" in s:
+            err(rel, "tests: l1-only is only allowed with os: none (guests with an OS are always tested L1-L3)")
+        if "tests" in s and s["tests"] not in TEST_EXEMPTIONS:
+            err(rel, f"tests must be one of {sorted(TEST_EXEMPTIONS)}")
+        if "cpu_type" in s and s["cpu_type"] not in CPU_TYPES:
+            err(rel, f"cpu_type must be one of {sorted(CPU_TYPES)}")
+        if isinstance(s.get("os"), str) and s["os"] != NO_OS:
             fam = os_family(s["os"])
             if not list((pathlib.Path(a.infra) / "tests" / "os").glob(f"{fam}.*")):
                 err(rel, f"os '{s['os']}' has no baseline tests (homelab-infra tests/os/{fam}.*): add them first")
@@ -122,6 +140,20 @@ def lint_infra(a, S, I, zones_doc, roles, err):
             err(rel, f"zone '{zone}' does not take pipeline guests")
         if z.get("bridge") in prot_bridges:
             err(rel, f"zone '{zone}' uses protected bridge {z.get('bridge')}")
+        if "extra_nics" in s:
+            nics, lab = s["extra_nics"], z.get("lab_bridges") or []
+            if not isinstance(nics, list) or not nics or not all(isinstance(b, str) for b in nics):
+                err(rel, "extra_nics must be a non-empty list of bridge names")
+            else:
+                if len(nics) > MAX_EXTRA_NICS:
+                    err(rel, f"extra_nics: at most {MAX_EXTRA_NICS} (net1-net{MAX_EXTRA_NICS})")
+                if len(set(nics)) != len(nics):
+                    err(rel, "extra_nics lists a bridge twice")
+                for b in nics:
+                    if b in prot_bridges:
+                        err(rel, f"extra_nics: {b} is a protected bridge")
+                    elif b not in lab:
+                        err(rel, f"extra_nics: {b} is not a lab bridge of zone '{zone}' (naming/zones.yaml lab_bridges: {lab}; Network Engineer)")
 
         h = str(s.get("hostname", ""))
         if spec_path.stem != h:
