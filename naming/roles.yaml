@@ -22,6 +22,7 @@ roles:
   ws: Workstation
   web: Web server (generic HTTP service)
   tst: Throwaway test guest (stg only; CD acceptance, drills)
+  net: Network lab / emulation host (GNS3 and similar; stg)
   gw: Gateway (network device)
   csw: Core switch (network device)
   asw: Access switch (network device)
