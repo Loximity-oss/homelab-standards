@@ -98,3 +98,24 @@ flows:
       - Allow AIOPS to DNS LXCs ICMP
     why: blackbox probes from CT 301 (icmp + ssh per guest; AdGuard dns_udp :53 and http_2xx :80), homelab-apps 4.3
     ref: homelab-infra #127; homelab-apps proposal 4-verification.md 4.3 (net R3)
+  cicd-iot-app-ssh:
+    from: hm1-shr-cicd01           # CT 300, 192.168.70.20
+    to: hm1-iot-app01              # 192.168.74.12 (iot app guest, homelab-infra #179)
+    ports: [22/tcp]
+    router: lox-gw-01              # Internal -> Untrusted Networks (predefined Block All)
+    state: proposed
+    policies:                      # live policy lists only 192.168.74.10-11 and 192.168.69.10-11 as destinations
+      - Allow DEVOPS to All DNS LXCs   # change: add 192.168.74.12 to its destination IPs (or rename, Faris decides)
+    why: Ansible + pipeline tests reach the new iot app guest; Ansible failed with SSH timeout after the #179 apply
+    ref: homelab-infra #179
+  aiops-iot-app-ssh:
+    from: hm1-shr-aiops01          # CT 301, 192.168.70.13
+    to: hm1-iot-app01              # 192.168.74.12
+    ports: [22/tcp, icmp]
+    router: lox-gw-01
+    state: proposed
+    policies:
+      - Allow AIOPS to DNS LXCs TCP 22,80   # add 192.168.74.12 to destination IPs (80 is not needed for app01)
+      - Allow AIOPS to DNS LXCs ICMP        # add 192.168.74.12 to destination IPs
+    why: SSH diagnostics and icmp probes from CT 301 to the iot app guest
+    ref: homelab-infra #179
