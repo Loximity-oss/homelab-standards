@@ -63,6 +63,9 @@ schema:
 #   wifi+iot  CT 301 192.168.70.13 -> 192.168.69.10-11, 192.168.74.10-11 udp/53, tcp/22,80, icmp   IMPLEMENTED
 #             three policies 'Allow AIOPS to DNS LXCs UDP 53 / TCP 22,80 / ICMP' (Internal -> Untrusted Networks;
 #             created by Faris 2026-10-20 for 192.168.67.3, source changed to 192.168.70.13 by Faris 2026-10-24; entry aiops-dns-probes)
+# GNS3 lab VM (Faris 2026-10-31; hm1-stg-net01, 192.168.76.10, VMID 810): tru (Faris admin) -> GNS3 server API/UI 3080/tcp and
+# node consoles (GNS3 default console range is 5000-10000; narrowed to 5000-5099/tcp, widen by PR if more nodes are needed).
+# tru is routed by lox-gw-01, stg by lox-coresw-01: the flow crosses the UDM (zone-firewall policy, Class C, not yet created).
 # Internal-network DNS (tru/int/dmz/stg -> wifi DNS 53, tru -> wifi DNS admin UI 80/443): design pending Faris
 # (2026-10-17). The 2026-10-09 lines above stay as recorded; nothing is planned or implemented for these until then.
 # iot/gst -> wifi DNS 53: undecided (Faris open question).
