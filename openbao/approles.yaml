@@ -11,5 +11,6 @@ approles:
 token_roles:   # apply.sh writes token_max_ttl as token_explicit_max_ttl (the only TTL a token role honours)
   apps-adguard: {allowed_policies: [ci-apps-adguard], token_max_ttl: 30m, renewable: false}
   apps-k3s:     {allowed_policies: [ci-apps-k3s],     token_max_ttl: 60m, renewable: false}
+  apps-gns3:    {allowed_policies: [ci-apps-gns3],    token_max_ttl: 60m, renewable: false}
 userpass:
   faris: {policies: [admin], token_ttl: 8h}
