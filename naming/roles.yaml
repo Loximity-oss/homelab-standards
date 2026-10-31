@@ -35,3 +35,4 @@ role_apps:
   dns: adguard
   k3sc: k3s
   k3sw: k3s
+  net: gns3
