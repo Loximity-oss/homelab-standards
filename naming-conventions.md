@@ -372,6 +372,12 @@ One catalogue entry per app (what it is), one deployment per zone it runs in (wh
 
 One entry per app, not per zone or version: `adguard-wifi`, `adguard2` or `k3s-prod` are wrong (the deployment carries the zone, `version.pin` the version).
 
+### 8.7 READMEs (Infrastructure Engineer)
+- Every repo has a root `README.md` with the 12 headers of `readme-standard.md`, in the same order.
+- Language: ASD-STE100. The term list is in `readme-standard.md` section 7.
+- Revision history: the Git history of the repo. No `CHANGELOG.md`. A commit for a material change says what changed and why. It also corrects any README fact that the change makes false.
+- A README does not hold issue, PR, or project numbers.
+
 ---
 
 ## 9. Ops artefacts
