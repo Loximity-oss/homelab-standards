@@ -45,6 +45,7 @@ zones:
       192.168.70.12: hm1-shr-vault01 (CT 303)
       192.168.70.13: hm1-shr-aiops01 (CT 301, OpenClaw)
       192.168.70.20: hm1-shr-cicd01 (CT 300)
+      192.168.70.10: Ubiquiti honeypot (UniFi honeypot)
   int:
     name: Internal
     vlan: 40
@@ -92,6 +93,8 @@ zones:
     vmid: [600, 699]
     pool: pool-iot
     ip_bands: {static: [10, 99]}   # no vip band: .200-.239 lies inside the DHCP pool
+    reserved_ips:
+      192.168.74.12: Ubiquiti honeypot (UniFi honeypot)
   wifi:
     name: WiFi
     vlan: 110
@@ -104,6 +107,8 @@ zones:
     vmid: [500, 599]
     pool: pool-wifi
     ip_bands: {static: [10, 99]}   # no vip band: .200-.239 lies inside the DHCP pool
+    reserved_ips:
+      192.168.69.12: Ubiquiti honeypot (UniFi honeypot)
   gst:
     name: Guest
     vlan: 120
