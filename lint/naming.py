@@ -35,6 +35,11 @@ APP_NAME_MAX = 30
 APP_EXAMPLES = {"_example"}                        # status `example`: catalogue only, never deployed
 APP_PLACEHOLDERS = {".gitkeep"}                    # keeps empty folders (e.g. deployments/stg/) in Git
 APPS_TITLE_RE = re.compile(r"^(WIP:? )?(feat|fix|chore|patch|app|net|learn|docs)(\((?:_example|[a-z0-9-]+)\))?!?: \S")
+# Addresses an app CLAIMS on the network (keepalived/VRRP VIPs, ...) are declared only in keys named <prefix>_vip or
+# <prefix>_vips (any depth) in deployments/<zone>/<app>.yaml and catalog/<app>/role/{defaults,vars}/. Each value is a
+# literal address (optionally /prefix), never in any zone's naming/zones.yaml reserved_ips (UDM honeypots, hand-built
+# guests) or a protected subnet; in a deployment also inside the zone subnet and an ip_band (same rule as guest ips).
+VIP_KEY_RE = re.compile(r"(?:^|_)vips?$")
 
 
 def load(p):
@@ -216,10 +221,65 @@ def lint_infra(a, S, I, zones_doc, roles, err):
             seen[key][v] = rel
 
 
-def lint_apps(A, zones_doc, roles, err):
-    """homelab-apps: catalogue entry folder = entry name, deployment path = deployments/<zone>/<app>.yaml.
-    Everything beyond naming (specs, pattern counts, waves, pins, secret path shape) is apps scripts/catalog.py."""
+def vip_values(node, path=""):
+    """(key path, value) for every *_vip / *_vips key anywhere in a YAML document; list values are expanded."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            p = f"{path}.{k}" if path else str(k)
+            if isinstance(k, str) and VIP_KEY_RE.search(k):
+                if isinstance(v, list):
+                    for i, x in enumerate(v):
+                        yield f"{p}[{i}]", x
+                else:
+                    yield p, v
+            else:
+                yield from vip_values(v, p)
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from vip_values(v, f"{path}[{i}]")
+
+
+def check_vip(rel, key, val, zones, prot_nets, err, zone=None):
+    """A claimed address: literal, not reserved in ANY zone, not protected; with zone: in its subnet and an ip_band.
+    None / "" = no VIP. Anything else that is not a literal address (Jinja, ints, mappings) fails closed."""
+    if val is None or val == "":
+        return
+    try:
+        if not isinstance(val, str):
+            raise ValueError("not a string")
+        ip = ipaddress.ip_interface(val.strip()).ip
+    except ValueError:
+        err(rel, f"{key}: {val!r} must be a literal IP address (VIPs are checked against naming/zones.yaml reserved_ips)")
+        return
+    for zc, zv in zones.items():
+        res = zv.get("reserved_ips") or {}
+        if str(ip) in res:
+            err(rel, f"{key}: ip {ip} is reserved for {res[str(ip)]} (zone '{zc}')")
+    if any(ip in n for n in prot_nets):
+        err(rel, f"{key}: ip {ip} is in a protected subnet")
+    if zone is None:
+        return
+    z = zones.get(zone) or {}
+    try:
+        net = ipaddress.ip_network(z["cidr"])
+    except (KeyError, ValueError):
+        return
+    if ip not in net:
+        err(rel, f"{key}: ip {ip} not in zone '{zone}' subnet {net}")
+        return
+    last = int(str(ip).split(".")[-1])
+    bands = z.get("ip_bands", {})
+    if not any(b[0] <= last <= b[1] for b in bands.values()):
+        err(rel, f"{key}: ip {ip} not in an allowed band for '{zone}': {bands}")
+
+
+def lint_apps(A, zones_doc, roles, err, S=None):
+    """homelab-apps: catalogue entry folder = entry name, deployment path = deployments/<zone>/<app>.yaml, and claimed
+    addresses (*_vip / *_vips keys) against reserved_ips. Everything beyond that (specs, pattern counts, waves, pins,
+    secret path shape) is apps scripts/catalog.py."""
     zones = zones_doc["zones"]
+    prot = load(S / "protected.yaml") if S is not None and (S / "protected.yaml").exists() else {}
+    prot_nets = [ipaddress.ip_network(n) for n in prot.get("subnets", [])]
     role_codes = set(roles["roles"]) - set(roles.get("network_device_roles", []))
 
     entries = set()
@@ -258,6 +318,19 @@ def lint_apps(A, zones_doc, roles, err):
                 if code not in role_codes:
                     err(frel, f"catalog.role '{code}' not in naming/roles.yaml (owner: oc-infra; open a standards PR)")
 
+    # Claimed addresses in catalogue role defaults/vars (zone-agnostic fallbacks): reserved / protected only.
+    if cat.is_dir():
+        for f in sorted(p for sub in ("defaults", "vars") for p in cat.glob(f"*/role/{sub}/**/*")):
+            if f.is_symlink() or not f.is_file() or f.suffix not in (".yml", ".yaml"):
+                continue
+            frel = f.relative_to(A)
+            try:
+                doc = load(f)
+            except Exception as x:
+                err(frel, f"invalid YAML: {x}"); continue
+            for key, val in vip_values(doc):
+                check_vip(frel, key, val, zones, prot_nets, err)
+
     dep = A / "deployments"
     if dep.is_dir():
         for zd in sorted(dep.iterdir()):
@@ -294,6 +367,8 @@ def lint_apps(A, zones_doc, roles, err):
                     err(frel, f"app '{d.get('app')}' must equal the file name '{app}'")
                 if d.get("zone") != zone:
                     err(frel, f"zone '{d.get('zone')}' must equal the folder '{zone}'")
+                for key, val in vip_values(d):   # vars, host_vars, any depth
+                    check_vip(frel, key, val, zones, prot_nets, err, zone=zone if zv else None)
                 hosts = d.get("hosts")
                 if hosts is None:
                     continue
@@ -353,7 +428,7 @@ def main():
         lint_infra(a, S, R, zones_doc, roles, err)
         title_re, title_eg = TITLE_RE, "'feat(shr): add dns01'"
     else:
-        lint_apps(R, zones_doc, roles, err)
+        lint_apps(R, zones_doc, roles, err, S)
         title_re, title_eg = APPS_TITLE_RE, "'app(adguard): bump to v0.107.80'"
     lint_secrets(S, R, err)
 
