@@ -19,9 +19,12 @@ if ! git -C "$BASE" merge-base --is-ancestor "$MAIN" "$HEAD_SHA"; then
   python3 "$BASE/ci/gitea.py" comment "$PR" "$WORK/c.md"; exit 0
 fi
 INFRA="$WORK/infra"; rm -rf "$INFRA"; clone homelab/homelab-infra "$INFRA" "$GITEA_API_TOKEN"
+APPS="$WORK/apps"; rm -rf "$APPS"; clone homelab/homelab-apps "$APPS" "$GITEA_API_TOKEN"
 R="$WORK/report.md"; : > "$R"; fail=0
 chk() { local n=$1; shift; if "$@" > "$WORK/$n.log" 2>&1; then echo "- ✅ $n" >> "$R"; else fail=1; { echo "- ❌ **$n**"; echo '```'; head -40 "$WORK/$n.log"; echo '```'; } >> "$R"; fi; }
 chk "naming lint (main's checker, PR data, infra main)" python3 "$BASE/lint/naming.py" --standards "$HEAD_DIR" --infra "$INFRA"
+# reserved_ips also bind app VIPs (homelab-apps *_vip keys): a zones.yaml change must not collide with a live VIP
+chk "naming lint (main's checker, PR data, apps main)" python3 "$BASE/lint/naming.py" --repo apps --standards "$HEAD_DIR" --apps "$APPS"
 chk yamllint yamllint -d relaxed "$HEAD_DIR"
 chk gitleaks gitleaks dir "$HEAD_DIR" --no-banner --redact
 if git -C "$BASE" diff --name-only "$MAIN...$HEAD_SHA" | grep -qx 'naming/zones.yaml'; then
