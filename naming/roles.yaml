@@ -4,7 +4,7 @@ roles:
   aiops: OpenClaw (AIOps team)
   cicd: DevOps plane (Gitea, runner, state DB)
   dns: DNS resolver / authoritative
-  dc: AD domain controller (later)
+  dc: AD domain controller
   idp: Identity provider
   pki: Internal certificate authority
   vault: Secrets store (OpenBao)
@@ -36,3 +36,4 @@ role_apps:
   k3sc: k3s
   k3sw: k3s
   net: gns3
+  dc: samba-dc
