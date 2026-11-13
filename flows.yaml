@@ -132,3 +132,48 @@ flows:
       - Allow TRU to GNS3 UI and consoles
     why: GNS3 web UI/API (3080) and node telnet consoles (5000-5099) of the lab VM; no other source
     ref: Faris 2026-10-31 GNS3 lab VM hm1-stg-net01
+  cicd-mgt-jump-ssh:
+    from: hm1-shr-cicd01           # CT 300, 192.168.70.20
+    to: hm1-mgt-jump01             # planned 192.168.67.10 (VMID 110); not yet a spec or reserved_ips entry
+    ports: [22/tcp, icmp]
+    router: lox-coresw-01          # shr and mgt both routed by the core switch: no UDM policy
+    state: proposed
+    why: Ansible, L2 ssh check and L3 Goss for the pipeline-managed jumpbox (Route B). Exception to shr -> mgt deny,
+         like the CT 300 runners to the PVE host. Class C (core switch / zone rule, Faris)
+    ref: homelab-standards #57 (Faris 2026-11-13 Route B)
+  tru-mgt-jump-rdp:
+    from: tru                      # ASSUMPTION, source not confirmed by Faris (tru vs int vs a single client)
+    to: hm1-mgt-jump01             # 192.168.67.10
+    ports: [3389/tcp]
+    router: lox-gw-01              # tru is gateway-routed, mgt by the core switch: crosses the UDM (Class C)
+    state: proposed
+    policies:
+      - Allow TRU to MGT jumpbox RDP
+    why: xrdp desktop of the jumpbox for Faris admin work; narrow the source to his client IP once known
+    ref: homelab-standards #57
+  mgt-jump-pve-admin:
+    from: hm1-mgt-jump01
+    to: hm1-mgt-pve01              # 192.168.67.2, same L2 (VLAN 2): not routed, no rule needed
+    ports: [8006/tcp, 22/tcp, icmp]
+    router: lox-coresw-01
+    state: proposed
+    why: PVE web UI and ssh for admin from the jumpbox. Same subnet, so nothing to enforce unless a host firewall exists
+    ref: homelab-standards #57
+  mgt-jump-net-admin:
+    from: hm1-mgt-jump01
+    to: net                        # 192.168.68.0/24 UniFi gear (UDM 443, switches/APs 22 and 443)
+    ports: [443/tcp, 22/tcp, icmp]
+    router: lox-gw-01              # net is gateway-routed: UDM zone-firewall policy (Class C); both are zone Internal in UniFi, check intra-zone rules
+    state: proposed
+    policies:
+      - Allow MGT jumpbox to UniFi management
+    why: administer UniFi gear from the jumpbox. Narrow `to` to named hosts if Faris prefers
+    ref: homelab-standards #57
+  mgt-jump-internet:
+    from: hm1-mgt-jump01
+    to: internet
+    ports: [80/tcp, 443/tcp, 53/udp]
+    router: lox-gw-01
+    state: proposed
+    why: apt/vendor mirrors for patching and the XFCE/xrdp install; DNS via the UDM unless shr DNS is wanted
+    ref: homelab-standards #57
