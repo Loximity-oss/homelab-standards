@@ -10,4 +10,4 @@
 # Exception (homelab-apps, infra #127): the per-app child-token policies `ci-apps-<app>.hcl` list zones explicitly, so an
 # app token can only create secrets in zones that have that app's deployment; a new deployment zone = Class C edit there.
 mode: namespace          # namespace | mount (fallback if namespaces are unavailable: KV mounts secret-<zone>/ in the root namespace)
-namespaces: [shr, int, dmz, stg, wifi, iot]
+namespaces: [shr, int, dmz, stg, wifi, iot, mgt]
