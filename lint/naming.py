@@ -75,6 +75,94 @@ def app_name_problem(name, allow_example=True):
     return ""
 
 
+# Named single-guest exception (Faris 2026-11-13, hm1-mgt-jump01; openclaw #84, standards #57). A hostname in a zone's
+# `guest_allow` (naming/zones.yaml, Network Engineer) is admitted to a zone with guests: false, on its protected bridge
+# and at its address in a protected subnet ONLY when protected.yaml `exemptions` (Faris-only) holds the same hostname and
+# the spec, the allowlist entry, the exemption and the zone all agree on vmid, ip (one host) and bridge. Else: fail.
+EXEMPT_KEYS = {"vmid", "ip", "bridge"}
+EXEMPT_OPTIONAL = {"type", "reason"}
+
+
+def host_ip(v):
+    """'a.b.c.d' or 'a.b.c.d/32' -> address; a wider prefix, None or garbage -> None."""
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        i = ipaddress.ip_interface(str(v).strip())
+    except ValueError:
+        return None
+    return i.ip if i.network.prefixlen == i.max_prefixlen else None
+
+
+def allow_entry_problems(e):
+    """Shape of one guest_allow / exemptions entry: {vmid: int, ip: one host, bridge: str[, type, reason]}."""
+    if not isinstance(e, dict):
+        return ["must be a mapping {vmid, ip, bridge}"]
+    out = []
+    if EXEMPT_KEYS - set(e):
+        out.append(f"missing {sorted(EXEMPT_KEYS - set(e))}")
+    if set(e) - EXEMPT_KEYS - EXEMPT_OPTIONAL:
+        out.append(f"unknown keys {sorted(set(e) - EXEMPT_KEYS - EXEMPT_OPTIONAL)}")
+    if "vmid" in e and (isinstance(e["vmid"], bool) or not isinstance(e["vmid"], int)):
+        out.append(f"vmid {e['vmid']!r} must be an integer")
+    if "ip" in e and host_ip(e["ip"]) is None:
+        out.append(f"ip {e['ip']!r} must be one host address (a.b.c.d or a.b.c.d/32)")
+    if "bridge" in e and not isinstance(e["bridge"], str):
+        out.append(f"bridge {e['bridge']!r} must be a bridge name")
+    if "type" in e and e["type"] not in TYPES:
+        out.append(f"type must be one of {sorted(TYPES)}")
+    return out
+
+
+def allow_mismatch(e, ex, z, spec=None):
+    """Why a guest_allow entry e, its protected.yaml exemption ex, the zone z and (optionally) the spec disagree."""
+    out = [f"guest_allow entry: {p}" for p in allow_entry_problems(e)]
+    out += [f"protected.yaml exemption: {p}" for p in allow_entry_problems(ex)]
+    if out:
+        return out
+    if e["vmid"] != ex["vmid"]:
+        out.append(f"vmid {e['vmid']} (guest_allow) != {ex['vmid']} (protected.yaml)")
+    if host_ip(e["ip"]) != host_ip(ex["ip"]):
+        out.append(f"ip {e['ip']} (guest_allow) != {ex['ip']} (protected.yaml)")
+    if e["bridge"] != ex["bridge"]:
+        out.append(f"bridge {e['bridge']} (guest_allow) != {ex['bridge']} (protected.yaml)")
+    if e["bridge"] != z.get("bridge"):
+        out.append(f"bridge {e['bridge']} != zone bridge {z.get('bridge')}")
+    if e.get("type") != ex.get("type"):
+        out.append(f"type {e.get('type')} (guest_allow) != {ex.get('type')} (protected.yaml)")
+    lo, hi = z.get("vmid", [0, -1])
+    if not lo <= e["vmid"] <= hi:
+        out.append(f"vmid {e['vmid']} outside zone block {lo}-{hi}")
+    try:
+        if host_ip(e["ip"]) not in ipaddress.ip_network(z["cidr"]):
+            out.append(f"ip {e['ip']} not in zone subnet {z['cidr']}")
+    except (KeyError, ValueError):
+        out.append("zone has no valid cidr")
+    if spec is not None:
+        if spec.get("vmid") != e["vmid"]:
+            out.append(f"spec vmid {spec.get('vmid')} != pinned vmid {e['vmid']}")
+        if host_ip(spec.get("ip")) != host_ip(e["ip"]):
+            out.append(f"spec ip {spec.get('ip')} != pinned ip {e['ip']}")
+        if "type" in e and spec.get("type") != e["type"]:
+            out.append(f"spec type {spec.get('type')} != pinned type {e['type']}")
+        if "extra_nics" in spec:
+            out.append("an exempted guest has net0 only (no extra_nics)")
+    return out
+
+
+def exempt_guest(h, zone, z, spec, exemptions):
+    """(granted, problems) for a spec in zone z. Granted only via guest_allow[h] + protected.yaml exemptions[h]."""
+    allow = z.get("guest_allow")
+    if not isinstance(allow, dict) or h not in allow:
+        return False, []
+    if z.get("guests"):
+        return False, [f"zone '{zone}' takes guests; guest_allow is only for zones with guests: false"]
+    if h not in exemptions:
+        return False, [f"'{h}' is in zone '{zone}' guest_allow but protected.yaml has no exemptions.{h} (Faris-only)"]
+    probs = allow_mismatch(allow[h], exemptions[h], z, spec)
+    return not probs, probs
+
+
 def lint_infra(a, S, I, zones_doc, roles, err):
     site, zones = zones_doc["site"], zones_doc["zones"]
     role_codes = set(roles["roles"]) - set(roles.get("network_device_roles", []))
@@ -84,6 +172,30 @@ def lint_infra(a, S, I, zones_doc, roles, err):
     prot_bridges = set(prot.get("bridges", []))
     tpl_lo, tpl_hi = prot.get("templates", [9000, 9199])
     prot_nets = [ipaddress.ip_network(n) for n in prot.get("subnets", [])]
+    exemptions = prot.get("exemptions") or {}
+    if not isinstance(exemptions, dict):
+        err("protected.yaml", "exemptions must be a mapping hostname -> {vmid, ip, bridge}"); exemptions = {}
+    for h, ex in exemptions.items():
+        for p in allow_entry_problems(ex):
+            err("protected.yaml", f"exemptions.{h}: {p}")
+    for zc, zv in zones.items():
+        allow = zv.get("guest_allow")
+        if allow is None:
+            continue
+        if not isinstance(allow, dict) or not allow:
+            err("naming/zones.yaml", f"{zc}.guest_allow must be a non-empty mapping hostname -> {{vmid, ip, bridge}}"); continue
+        if zv.get("guests"):
+            err("naming/zones.yaml", f"{zc}.guest_allow is only for zones with guests: false")
+        for h, e in allow.items():
+            ok, why, m = parse_hostname(str(h), zones_doc, roles)
+            if not ok:
+                err("naming/zones.yaml", f"{zc}.guest_allow.{h}: {why}")
+            elif m["zone"] != zc:
+                err("naming/zones.yaml", f"{zc}.guest_allow.{h}: hostname zone '{m['zone']}' != '{zc}'")
+            if h not in exemptions:
+                err("naming/zones.yaml", f"{zc}.guest_allow.{h}: no matching protected.yaml exemptions.{h} (Faris-only)"); continue
+            for p in allow_mismatch(e, exemptions[h], zv):
+                err("naming/zones.yaml", f"{zc}.guest_allow.{h}: {p}")
 
     # v7.1: every guest zone needs an OpenBao namespace (one-time guest secrets) and a PKI role (ACME)
     ob = S / "openbao"
@@ -91,7 +203,7 @@ def lint_infra(a, S, I, zones_doc, roles, err):
         nss = set(load(ob / "namespaces.yaml").get("namespaces", []))
         pki_roles = set((load(ob / "pki.yaml").get("roles") or {})) if (ob / "pki.yaml").exists() else set()
         for zc, zv in zones.items():
-            if zv.get("guests"):
+            if zv.get("guests") or zv.get("guest_allow"):   # a named exception guest needs them too
                 if zc not in nss:
                     err("openbao/namespaces.yaml", f"guest zone {zc} has no OpenBao namespace")
                 if zc not in pki_roles:
@@ -141,9 +253,13 @@ def lint_infra(a, S, I, zones_doc, roles, err):
         z = zones.get(zone)
         if not z:
             err(rel, f"stack directory '{zone}' is not a zone code"); continue
-        if not z.get("guests"):
+        # Named single-guest exception (guest_allow + protected.yaml exemptions); everything else is refused as before.
+        exempt, probs = exempt_guest(str(s.get("hostname", "")), zone, z, s, exemptions)
+        for p in probs:
+            err(rel, f"exception not granted: {p}")
+        if not z.get("guests") and not exempt:
             err(rel, f"zone '{zone}' does not take pipeline guests")
-        if z.get("bridge") in prot_bridges:
+        if z.get("bridge") in prot_bridges and not exempt:
             err(rel, f"zone '{zone}' uses protected bridge {z.get('bridge')}")
         if "extra_nics" in s:
             nics, lab = s["extra_nics"], z.get("lab_bridges") or []
@@ -195,9 +311,9 @@ def lint_infra(a, S, I, zones_doc, roles, err):
                 err(rel, f"ip {ip} not in zone '{zone}' subnet {net}")
             last = int(str(ip).split(".")[-1])
             bands = z.get("ip_bands", {})
-            if not any(b[0] <= last <= b[1] for b in bands.values()):
+            if not exempt and not any(b[0] <= last <= b[1] for b in bands.values()):   # exempt: ip is pinned
                 err(rel, f"ip {ip} not in an allowed band for '{zone}': {bands}")
-            if any(ip in n for n in prot_nets):
+            if any(ip in n for n in prot_nets) and not exempt:
                 err(rel, f"ip {ip} is in a protected subnet")
             if str(ip) in (z.get("reserved_ips") or {}):
                 err(rel, f"ip {ip} is reserved for {z['reserved_ips'][str(ip)]}")
