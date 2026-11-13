@@ -15,6 +15,13 @@ zones:
     router: lox-coresw-01
     dhcp: none
     guests: false        # PVE host and networking gear only (OpenClaw moved to shr CT 301, 2026-10-24). Hard limit.
+    # DRAFT exception (Faris request 2026-11-13, Class C, NOT in force until merged AND the schema/protected.yaml steps below are done):
+    # exactly ONE guest may live here: hm1-mgt-jump01 (role jump, VM, VMID 110 in the mgt block 100-199, planned IP 192.168.67.10,
+    # Ubuntu 26.04 from template 9000, 2 vCPU / 2 GiB, XFCE+xrdp). Reason: hairpinning is a design limitation of the network and a
+    # transparent-L2 Sophos appliance (not yet onboarded) sits in the path, so a jumpbox in int/shr cannot reliably reach mgmt gear.
+    # guests stays false for every other guest. Not expressible today: lint/naming.py only knows zone-wide `guests`, and rejects
+    # bridge vmbr0 and the protected subnet 192.168.67.0/28; mgt also has no ip_bands. Needs an oc-infra schema addition
+    # (per-zone allowlist of named guests) and Faris's protected.yaml decision. See PR description.
     vmid: [100, 199]
     pool: pool-mgt
     reserved_ips:            # hand-built protected guests (not in homelab-infra specs); named hosts in flows.yaml
