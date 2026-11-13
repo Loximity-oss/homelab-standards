@@ -16,3 +16,9 @@ templates: [9000, 9199]
 bridges: [vmbr0]
 subnets: [192.168.67.0/28, 192.168.70.13/32]   # whole mgt zone (UniFi /28, standards #31; /28 since 2026-10-20, Faris)
                                                # + hm1-shr-aiops01 (CT 301, OpenClaw in shr since 2026-10-24)
+# Named single-guest exception (Faris 2026-11-13; openclaw #84, standards #57). Only this hostname, at exactly this
+# VMID, IP and bridge, may be a pipeline guest on a protected bridge / in a protected subnet. Read by lint/naming.py
+# and the homelab-infra VM module precondition. Every change to it is still Class C (classifier: protected bridge).
+# The apply token has NO access to vmbr0: root attaches net0 by hand (untagged; vmbr0 is not VLAN-aware).
+exemptions:
+  hm1-mgt-jump01: {vmid: 110, ip: 192.168.67.10/32, bridge: vmbr0, type: vm, reason: "mgt jumpbox (hairpin + transparent-L2 Sophos)"}
