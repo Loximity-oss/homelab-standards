@@ -36,4 +36,3 @@ role_apps:
   k3sc: k3s
   k3sw: k3s
   net: gns3
-  dc: samba-dc
